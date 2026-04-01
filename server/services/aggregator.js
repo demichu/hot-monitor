@@ -2,7 +2,6 @@ const webSearch = require('./sources/webSearch');
 const rss = require('./sources/rss');
 const hackerNews = require('./sources/hackerNews');
 const chinaSearch = require('./sources/chinaSearch');
-const chinaMainstream = require('./sources/chinaMainstream');
 
 /**
  * 聚合多来源数据（专注中文源）
@@ -19,8 +18,7 @@ async function aggregate(query, options = {}) {
   console.log(`${'='.repeat(60)}`);
 
   // 并行从所有来源获取数据
-  const [mainlandResults, webResults, rssResults, hnResults, cnResults] = await Promise.allSettled([
-    chinaMainstream.search(query, maxPerSource),
+  const [webResults, rssResults, hnResults, cnResults] = await Promise.allSettled([
     webSearch.search(query, maxPerSource),
     rss.fetchAllFeeds(query),
     hackerNews.searchHN(query, maxPerSource),
@@ -31,7 +29,6 @@ async function aggregate(query, options = {}) {
 
   // 逐源统计
   const sources = [
-    { name: '中国主流媒体(B站>知乎>小红书>贴吧)', result: mainlandResults },
     { name: 'Web搜索(DDG+Bing+Google)', result: webResults },
     { name: 'RSS订阅', result: rssResults },
     { name: 'Hacker News', result: hnResults },
@@ -115,13 +112,9 @@ function deduplicateByUrl(items) {
 
 function sortBySourcePriority(items) {
   const priority = {
-    'cn:bilibili': 1,
-    'cn:zhihu': 2,
-    'cn:xiaohongshu': 3,
-    'cn:tieba': 4,
-    baidu: 6,
-    'web-search': 7,
-    hackernews: 8,
+    baidu: 1,
+    'web-search': 2,
+    hackernews: 3,
   };
 
   return [...items].sort((a, b) => {
