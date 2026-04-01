@@ -86,6 +86,34 @@
             </div>
             <button id="readAllBtn" class="btn-ghost">全部已读</button>
           </div>
+          <div class="filter-bar">
+            <select id="sortSelect" class="filter-select">
+              <option value="time-desc">最新优先</option>
+              <option value="time-asc">最早优先</option>
+              <option value="credibility">可信度优先</option>
+              <option value="keyword-group">按关键词分组</option>
+            </select>
+            <select id="keywordFilter" class="filter-select">
+              <option value="">全部关键词</option>
+            </select>
+            <select id="readFilter" class="filter-select">
+              <option value="">全部状态</option>
+              <option value="unread">未读</option>
+              <option value="read">已读</option>
+            </select>
+            <select id="credFilter" class="filter-select">
+              <option value="">全部可信度</option>
+              <option value="high">高 (≥70)</option>
+              <option value="mid">中 (40-69)</option>
+              <option value="low">低 (&lt;40)</option>
+            </select>
+            <select id="timeFilter" class="filter-select">
+              <option value="">全部时间</option>
+              <option value="1h">1小时内</option>
+              <option value="24h">24小时内</option>
+              <option value="3d">3天内</option>
+            </select>
+          </div>
           <div id="notificationsList" class="notifications-list">
             <div class="empty-state">
               <div class="empty-icon">

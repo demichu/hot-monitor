@@ -24,6 +24,11 @@ const API = {
 let keywords = [];
 let notifications = [];
 let unreadCount = 0;
+let sortMode = 'time-desc';
+let filterKeyword = '';
+let filterRead = '';
+let filterCredibility = '';
+let filterTime = '';
 
 // ---- DOM ----
 const $ = (sel) => document.querySelector(sel);
@@ -111,13 +116,112 @@ function renderKeywords() {
     </div>`).join('');
 }
 
+// ---- 筛选与排序 ----
+function getFilteredNotifications() {
+  let items = [...notifications];
+
+  if (filterKeyword) {
+    items = items.filter(n => n.keyword === filterKeyword);
+  }
+  if (filterRead === 'unread') {
+    items = items.filter(n => !n.read);
+  } else if (filterRead === 'read') {
+    items = items.filter(n => n.read);
+  }
+  if (filterCredibility === 'high') {
+    items = items.filter(n => (n.credibility || 0) >= 70);
+  } else if (filterCredibility === 'mid') {
+    items = items.filter(n => {
+      const c = n.credibility || 0;
+      return c >= 40 && c < 70;
+    });
+  } else if (filterCredibility === 'low') {
+    items = items.filter(n => (n.credibility || 0) < 40);
+  }
+  if (filterTime) {
+    const now = Date.now();
+    const ranges = { '1h': 3600000, '24h': 86400000, '3d': 259200000 };
+    const range = ranges[filterTime];
+    if (range) {
+      items = items.filter(n => now - new Date(n.createdAt).getTime() < range);
+    }
+  }
+
+  if (sortMode === 'time-asc') {
+    items.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  } else if (sortMode === 'credibility') {
+    items.sort((a, b) => (b.credibility || 0) - (a.credibility || 0));
+  } else if (sortMode !== 'keyword-group') {
+    items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
+
+  return items;
+}
+
+function updateKeywordFilterOptions() {
+  const select = $('#keywordFilter');
+  const current = select.value;
+  const kwSet = new Set();
+  notifications.forEach(n => { if (n.keyword) kwSet.add(n.keyword); });
+  keywords.forEach(k => kwSet.add(k.keyword));
+
+  const options = ['<option value="">全部关键词</option>'];
+  [...kwSet].sort().forEach(kw => {
+    options.push(`<option value="${escapeHtml(kw)}"${kw === current ? ' selected' : ''}>${escapeHtml(kw)}</option>`);
+  });
+  select.innerHTML = options.join('');
+}
+
 // ---- 渲染：热点流（通知列表）----
 function renderNotifications() {
   const container = $('#notificationsList');
   const panelList = $('#notifPanelList');
+  const filtered = getFilteredNotifications();
 
-  renderNotifList(container, notifications.slice(0, 30));
-  renderNotifList(panelList, notifications.slice(0, 50));
+  updateKeywordFilterOptions();
+
+  if (sortMode === 'keyword-group') {
+    renderGroupedNotifList(container, filtered);
+  } else {
+    renderNotifList(container, filtered.slice(0, 50));
+  }
+  renderNotifList(panelList, filtered.slice(0, 50));
+}
+
+function renderGroupedNotifList(container, items) {
+  if (!container) return;
+  if (!items.length) {
+    renderNotifList(container, []);
+    return;
+  }
+
+  const groups = {};
+  items.forEach(n => {
+    const key = n.keyword || '未分类';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(n);
+  });
+
+  container.innerHTML = Object.entries(groups).map(([keyword, notifs]) => `
+    <div class="notif-group">
+      <div class="notif-group-header">${escapeHtml(keyword)} <span class="notif-group-count">(${notifs.length})</span></div>
+      ${notifs.map(n => renderNotifItemHTML(n)).join('')}
+    </div>
+  `).join('');
+}
+
+function renderNotifItemHTML(n) {
+  const credClass = n.credibility >= 70 ? 'credibility-high' : n.credibility >= 40 ? 'credibility-mid' : 'credibility-low';
+  return `
+    <div class="notif-item ${n.read ? '' : 'unread'}" data-id="${n.id}">
+      <div class="notif-keyword">[${escapeHtml(n.keyword || '')}]</div>
+      <div class="notif-title"><a href="${escapeHtml(n.url || '#')}" target="_blank" rel="noopener noreferrer">${escapeHtml(n.title)}</a></div>
+      <div class="notif-snippet">${escapeHtml(n.snippet || '')}</div>
+      <div class="notif-meta">
+        <span class="notif-credibility ${credClass}">可信度 ${n.credibility || '?'}</span>
+        <span>${formatTime(n.createdAt)}</span>
+      </div>
+    </div>`;
 }
 
 function renderNotifList(container, items) {
@@ -130,25 +234,13 @@ function renderNotifList(container, items) {
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
           </svg>
         </div>
-        <p>等待扫描中...</p>
-        <span class="empty-hint">添加关键词后每30分钟自动抓取热点</span>
+        <p>暂无匹配结果</p>
+        <span class="empty-hint">尝试调整筛选条件</span>
       </div>`;
     return;
   }
 
-  container.innerHTML = items.map(n => {
-    const credClass = n.credibility >= 70 ? 'credibility-high' : n.credibility >= 40 ? 'credibility-mid' : 'credibility-low';
-    return `
-      <div class="notif-item ${n.read ? '' : 'unread'}" data-id="${n.id}">
-        <div class="notif-keyword">[${escapeHtml(n.keyword || '')}]</div>
-        <div class="notif-title"><a href="${escapeHtml(n.url || '#')}" target="_blank" rel="noopener noreferrer">${escapeHtml(n.title)}</a></div>
-        <div class="notif-snippet">${escapeHtml(n.snippet || '')}</div>
-        <div class="notif-meta">
-          <span class="notif-credibility ${credClass}">可信度 ${n.credibility || '?'}</span>
-          <span>${formatTime(n.createdAt)}</span>
-        </div>
-      </div>`;
-  }).join('');
+  container.innerHTML = items.map(n => renderNotifItemHTML(n)).join('');
 }
 
 function updateBadge() {
@@ -187,6 +279,13 @@ function bindEvents() {
     renderNotifications();
     updateBadge();
   });
+
+  // 排序与筛选
+  $('#sortSelect').addEventListener('change', (e) => { sortMode = e.target.value; renderNotifications(); });
+  $('#keywordFilter').addEventListener('change', (e) => { filterKeyword = e.target.value; renderNotifications(); });
+  $('#readFilter').addEventListener('change', (e) => { filterRead = e.target.value; renderNotifications(); });
+  $('#credFilter').addEventListener('change', (e) => { filterCredibility = e.target.value; renderNotifications(); });
+  $('#timeFilter').addEventListener('change', (e) => { filterTime = e.target.value; renderNotifications(); });
 
   // 事件委托：关键词操作 + 通知
   document.addEventListener('click', async (e) => {
