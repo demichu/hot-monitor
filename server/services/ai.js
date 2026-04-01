@@ -34,7 +34,10 @@ async function verifyContent(items) {
 1. 信息来源是否可靠（官方/知名媒体优于个人博客）
 2. 内容是否有具体细节（时间、版本号、功能描述等）
 3. 是否存在标题党、夸大、虚假信息的迹象
-4. 多条信息之间是否可以交叉验证
+4. 内容是否是最新的（优先最近24-72小时内的新闻）
+5. 多条信息之间是否可以交叉验证
+
+重要：过时的、陈旧的内容应大幅降低可信度分数。
 
 信息列表:
 ${items.map((it, i) => `[${i + 1}] 标题: ${it.title}\n    摘要: ${it.snippet}\n    来源: ${it.source}\n    链接: ${it.url}`).join('\n\n')}
@@ -79,7 +82,9 @@ ${items.map((it, i) => `[${i + 1}] 标题: ${it.title}\n    摘要: ${it.snippet
  */
 async function extractHotspots(scope, items) {
   if (!items.length) return [];
-  const prompt = `你是一个热点趋势分析专家。请从以下关于"${scope}"领域的${items.length}条信息中提取热点话题。
+  const prompt = `你是一个热点趋势分析专家。请从以下关于"${scope}"的${items.length}条信息中提取最新热点话题。
+
+注意：只提取最近1-3天内的新鲜热点，忽略过时的、陈旧的信息。
 
 信息列表:
 ${items.map((it, i) => `[${i + 1}] 标题: ${it.title}\n    摘要: ${it.snippet}\n    来源: ${it.source}\n    互动量: ${it.engagement || '未知'}`).join('\n\n')}

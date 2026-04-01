@@ -1,6 +1,6 @@
 const express = require('express');
 const { readJSON } = require('../services/store');
-const { runHotspotDiscovery } = require('../services/monitor');
+const { runKeywordMonitor } = require('../services/monitor');
 const router = express.Router();
 
 // GET /api/hotspots - 获取热点列表
@@ -17,11 +17,10 @@ router.get('/', (req, res) => {
   res.json({ hotspots });
 });
 
-// POST /api/hotspots/refresh - 手动触发热点刷新
+// POST /api/hotspots/refresh - 手动触发刷新
 router.post('/refresh', async (req, res) => {
-  res.json({ message: '热点刷新已触发', status: 'processing' });
-  // 异步执行，不阻塞响应
-  runHotspotDiscovery().catch(err => {
+  res.json({ message: '关键词监控已触发，热点将自动更新', status: 'processing' });
+  runKeywordMonitor().catch(err => {
     console.error('[Hotspot] Manual refresh error:', err.message);
   });
 });

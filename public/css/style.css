@@ -191,8 +191,7 @@ body {
 }
 
 .card-keywords   { grid-column: 1; }
-.card-scope      { grid-column: 2; }
-.card-sources    { grid-column: 3; }
+.card-sources    { grid-column: 2 / 4; }
 .card-hotspots   { grid-column: 1 / 3; grid-row: 2; }
 .card-notifications { grid-column: 3; grid-row: 2; }
 
@@ -969,10 +968,9 @@ body {
     grid-template-columns: 1fr 1fr;
   }
   .card-keywords   { grid-column: 1; grid-row: 1; }
-  .card-scope      { grid-column: 2; grid-row: 1; }
-  .card-sources    { grid-column: 1 / 3; grid-row: 2; }
-  .card-hotspots   { grid-column: 1 / 3; grid-row: 3; }
-  .card-notifications { grid-column: 1 / 3; grid-row: 4; }
+  .card-sources    { grid-column: 2; grid-row: 1; }
+  .card-hotspots   { grid-column: 1 / 3; grid-row: 2; }
+  .card-notifications { grid-column: 1 / 3; grid-row: 3; }
 
   .sources-grid { flex-direction: row; }
   .source-item { flex: 1; }
@@ -982,7 +980,6 @@ body {
   .bento-grid { grid-template-columns: 1fr; }
 
   .card-keywords,
-  .card-scope,
   .card-sources,
   .card-hotspots,
   .card-notifications {

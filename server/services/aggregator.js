@@ -1,125 +1,100 @@
 const webSearch = require('./sources/webSearch');
-const twitter = require('./sources/twitter');
 const rss = require('./sources/rss');
 const hackerNews = require('./sources/hackerNews');
 const chinaSearch = require('./sources/chinaSearch');
 
 /**
- * 聚合多来源数据
+ * 聚合多来源数据（专注中文源）
  * @param {string} query 搜索关键词
  * @param {object} options
- * @returns {Promise<Array<{title,snippet,url,source,engagement,createdAt}>>}
+ * @returns {Promise<Array<{title,snippet,url,source,createdAt}>>}
  */
 async function aggregate(query, options = {}) {
-  const { maxPerSource = 10, twitterQueryType = 'Latest' } = options;
+  const { maxPerSource = 10 } = options;
+  const startTime = Date.now();
 
-  // 检测是否为账号查询（以 @ 开头）
-  const username = twitter.extractUsername(query);
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`[Aggregator] 开始聚合搜索: "${query}"`);
+  console.log(`${'='.repeat(60)}`);
 
   // 并行从所有来源获取数据
-  const promises = [
+  const [webResults, rssResults, hnResults, cnResults] = await Promise.allSettled([
     webSearch.search(query, maxPerSource),
     rss.fetchAllFeeds(query),
     hackerNews.searchHN(query, maxPerSource),
     chinaSearch.search(query, maxPerSource),
-  ];
-
-  // Twitter：如果是账号则获取该用户推文，否则普通搜索
-  if (username) {
-    promises.push(twitter.searchUserTweets(username, { queryType: twitterQueryType }));
-  } else {
-    promises.push(twitter.advancedSearch(query, { queryType: twitterQueryType }));
-  }
-
-  const [webResults, rssResults, hnResults, cnResults, twitterData] = await Promise.allSettled(promises);
+  ]);
 
   let allItems = [];
 
-  if (webResults.status === 'fulfilled') {
-    allItems = allItems.concat(webResults.value);
-  }
+  // 逐源统计
+  const sources = [
+    { name: 'Web搜索(DDG+Bing+Google)', result: webResults },
+    { name: 'RSS订阅', result: rssResults },
+    { name: 'Hacker News', result: hnResults },
+    { name: '百度搜索', result: cnResults },
+  ];
 
-  if (rssResults.status === 'fulfilled') {
-    allItems = allItems.concat(rssResults.value);
-  }
-
-  if (hnResults.status === 'fulfilled') {
-    allItems = allItems.concat(hnResults.value);
-  }
-
-  if (cnResults.status === 'fulfilled') {
-    allItems = allItems.concat(cnResults.value);
-  }
-
-  if (twitterData.status === 'fulfilled') {
-    allItems = allItems.concat(twitter.tweetsToItems(twitterData.value.tweets));
+  for (const src of sources) {
+    if (src.result.status === 'fulfilled') {
+      const items = src.result.value;
+      allItems = allItems.concat(items);
+      console.log(`  ✓ ${src.name}: ${items.length} 条结果`);
+      // 打印每条结果的标题
+      items.forEach((it, i) => {
+        console.log(`    [${i + 1}] ${it.title.slice(0, 60)}${it.title.length > 60 ? '...' : ''}`);
+      });
+    } else {
+      console.log(`  ✗ ${src.name}: 失败 - ${src.result.reason?.message || '未知错误'}`);
+    }
   }
 
   // 去重（by URL）
   allItems = deduplicateByUrl(allItems);
 
-  console.log(`[Aggregator] "${query}" → ${allItems.length} unique items from all sources`);
+  // 过滤过时内容（超过72小时的内容降低优先级）
+  allItems = filterByFreshness(allItems);
+
+  const elapsed = Date.now() - startTime;
+  console.log(`${'─'.repeat(60)}`);
+  console.log(`[Aggregator] "${query}" → 去重后 ${allItems.length} 条, 耗时 ${elapsed}ms`);
+  console.log(`${'─'.repeat(60)}\n`);
+
   return allItems;
 }
 
 /**
- * 获取热点趋势数据（用于热点发现模式）
+ * 按新鲜度过滤和排序
+ * - 有日期的：72小时内优先，超过72小时排后面
+ * - 无日期的：保留但排在有日期的后面
  */
-async function aggregateForHotspots(scope) {
-  const username = twitter.extractUsername(scope);
+function filterByFreshness(items) {
+  const now = Date.now();
+  const MAX_AGE_MS = 72 * 60 * 60 * 1000; // 72小时
 
-  const promises = [
-    twitter.getTrends(1, 30),
-    webSearch.search(`${scope} latest news today`, 15),
-    rss.fetchAllFeeds(),
-    hackerNews.getFrontPage(20),
-    chinaSearch.search(`${scope} 最新消息`, 10),
-  ];
+  const fresh = [];
+  const stale = [];
+  const noDate = [];
 
-  // Twitter：账号则搜其推文，否则按范围搜 Top
-  if (username) {
-    promises.push(twitter.searchUserTweets(username, { queryType: 'Top' }));
-  } else {
-    promises.push(twitter.advancedSearch(scope, { queryType: 'Top' }));
+  for (const item of items) {
+    if (item.createdAt) {
+      const age = now - new Date(item.createdAt).getTime();
+      if (age <= MAX_AGE_MS) {
+        fresh.push(item);
+      } else {
+        stale.push(item);
+      }
+    } else {
+      noDate.push(item);
+    }
   }
 
-  const [twitterTrends, webResults, rssResults, hnResults, cnResults, twitterSearch] =
-    await Promise.allSettled(promises);
-
-  let allItems = [];
-
-  // Web 搜索结果（DDG + Bing + Google 并行）
-  if (webResults.status === 'fulfilled') {
-    allItems = allItems.concat(webResults.value);
+  if (stale.length > 0) {
+    console.log(`  ⏳ 过滤掉 ${stale.length} 条超过72小时的过时内容`);
   }
 
-  // RSS 结果
-  if (rssResults.status === 'fulfilled') {
-    allItems = allItems.concat(rssResults.value);
-  }
-
-  // Hacker News 首页热门
-  if (hnResults.status === 'fulfilled') {
-    allItems = allItems.concat(hnResults.value);
-  }
-
-  // 百度搜索结果
-  if (cnResults.status === 'fulfilled') {
-    allItems = allItems.concat(cnResults.value);
-  }
-
-  // Twitter 搜索结果（Top推文 / 指定账号）
-  if (twitterSearch.status === 'fulfilled') {
-    allItems = allItems.concat(twitter.tweetsToItems(twitterSearch.value.tweets));
-  }
-
-  allItems = deduplicateByUrl(allItems);
-
-  // Twitter 趋势作为补充信息
-  const trends = twitterTrends.status === 'fulfilled' ? twitterTrends.value : [];
-
-  console.log(`[Aggregator] Hotspots for "${scope}" → ${allItems.length} items, ${trends.length} trends`);
-  return { items: allItems, trends };
+  // 新鲜内容优先，无日期次之，过时内容不返回
+  return [...fresh, ...noDate];
 }
 
 function deduplicateByUrl(items) {
@@ -132,4 +107,4 @@ function deduplicateByUrl(items) {
   });
 }
 
-module.exports = { aggregate, aggregateForHotspots };
+module.exports = { aggregate };

@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const cron = require('node-cron');
-const { runKeywordMonitor, runHotspotDiscovery } = require('./services/monitor');
+const { runKeywordMonitor } = require('./services/monitor');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,13 +18,10 @@ app.use('/api/notifications', require('./routes/notifications'));
 
 // 系统状态
 app.get('/api/status', (req, res) => {
-  const twitterKey = process.env.TWITTER_API_KEY;
   res.json({
     status: 'running',
     uptime: process.uptime(),
     monitorInterval: `${process.env.MONITOR_INTERVAL_MINUTES || 5}min`,
-    hotspotInterval: `${process.env.HOTSPOT_INTERVAL_MINUTES || 30}min`,
-    twitterConfigured: !!(twitterKey && twitterKey !== 'your_twitter_api_key'),
   });
 });
 
@@ -36,19 +33,13 @@ app.get('/{*splat}', (req, res) => {
 // 定时任务：关键词监控
 const monitorMin = process.env.MONITOR_INTERVAL_MINUTES || 5;
 cron.schedule(`*/${monitorMin} * * * *`, () => {
-  console.log(`[Cron] Running keyword monitor (every ${monitorMin}min)...`);
+  console.log(`[Cron] 触发关键词监控 (每 ${monitorMin} 分钟)...`);
   runKeywordMonitor().catch(err => console.error('[Cron] Monitor error:', err.message));
 });
 
-// 定时任务：热点发现
-const hotspotMin = process.env.HOTSPOT_INTERVAL_MINUTES || 30;
-cron.schedule(`*/${hotspotMin} * * * *`, () => {
-  console.log(`[Cron] Running hotspot discovery (every ${hotspotMin}min)...`);
-  runHotspotDiscovery().catch(err => console.error('[Cron] Hotspot error:', err.message));
-});
-
 app.listen(PORT, () => {
-  console.log(`\n🔥 Hot Monitor running at http://localhost:${PORT}`);
-  console.log(`   Keyword monitor: every ${monitorMin} minutes`);
-  console.log(`   Hotspot discovery: every ${hotspotMin} minutes\n`);
+  console.log(`\n🔥 Hot Monitor 已启动: http://localhost:${PORT}`);
+  console.log(`   关键词监控间隔: 每 ${monitorMin} 分钟`);
+  console.log(`   数据源: Web搜索 | 百度 | RSS | Hacker News`);
+  console.log(`   AI: 火山引擎方舟 DeepSeek V3\n`);
 });

@@ -4,10 +4,10 @@
 
 const API = {
   getKeywords: () => fetch('/api/keywords').then(r => r.json()),
-  addKeyword: (keyword, type) => fetch('/api/keywords', {
+  addKeyword: (keyword) => fetch('/api/keywords', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ keyword, type }),
+    body: JSON.stringify({ keyword, type: 'keyword' }),
   }).then(r => r.json()),
   toggleKeyword: (id, active) => fetch(`/api/keywords/${id}`, {
     method: 'PATCH',
@@ -15,12 +15,11 @@ const API = {
     body: JSON.stringify({ active }),
   }).then(r => r.json()),
   deleteKeyword: (id) => fetch(`/api/keywords/${id}`, { method: 'DELETE' }).then(r => r.json()),
-  getHotspots: (scope) => fetch(`/api/hotspots${scope ? `?scope=${encodeURIComponent(scope)}` : ''}`).then(r => r.json()),
+  getHotspots: () => fetch('/api/hotspots').then(r => r.json()),
   refreshHotspots: () => fetch('/api/hotspots/refresh', { method: 'POST' }).then(r => r.json()),
   getNotifications: () => fetch('/api/notifications').then(r => r.json()),
   markRead: (id) => fetch(`/api/notifications/${id}/read`, { method: 'POST' }).then(r => r.json()),
   markAllRead: () => fetch('/api/notifications/read-all', { method: 'POST' }).then(r => r.json()),
-  getStatus: () => fetch('/api/status').then(r => r.json()),
 };
 
 // ---- 状态 ----
@@ -40,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
   loadKeywords();
   loadHotspots();
   loadNotifications();
-  loadStatus();
   bindEvents();
   requestNotificationPermission();
 });
@@ -88,7 +86,7 @@ function initSSE() {
 async function loadKeywords() {
   try {
     const data = await API.getKeywords();
-    keywords = data.keywords || [];
+    keywords = (data.keywords || []).filter(k => k.type !== 'scope');
     renderKeywords();
   } catch (err) {
     console.error('Load keywords failed:', err);
@@ -117,39 +115,13 @@ async function loadNotifications() {
   }
 }
 
-async function loadStatus() {
-  try {
-    const data = await API.getStatus();
-    const el = $('#twitterStatus');
-    if (el) {
-      if (data.twitterConfigured) {
-        el.textContent = '在线';
-        el.classList.add('active');
-      } else {
-        el.textContent = '待配置';
-        el.classList.remove('active');
-      }
-    }
-  } catch (err) {
-    console.error('Load status failed:', err);
-  }
-}
-
 // ---- 渲染：关键词列表 ----
 function renderKeywords() {
   const kwList = $('#keywordList');
-  const scopeList = $('#scopeList');
 
-  const kws = keywords.filter(k => k.type !== 'scope');
-  const scopes = keywords.filter(k => k.type === 'scope');
-
-  kwList.innerHTML = kws.length === 0
+  kwList.innerHTML = keywords.length === 0
     ? '<div class="empty-state" style="padding:20px"><p>暂无监控关键词</p></div>'
-    : kws.map(k => renderKeywordItem(k)).join('');
-
-  scopeList.innerHTML = scopes.length === 0
-    ? '<div class="empty-state" style="padding:20px"><p>暂无热点范围</p></div>'
-    : scopes.map(k => renderKeywordItem(k)).join('');
+    : keywords.map(k => renderKeywordItem(k)).join('');
 }
 
 function renderKeywordItem(k) {
@@ -176,7 +148,7 @@ function renderHotspots() {
           </svg>
         </div>
         <p>等待扫描中...</p>
-        <span class="empty-hint">添加热点范围后将自动发现热点</span>
+        <span class="empty-hint">添加关键词后将自动发现相关热点</span>
       </div>`;
     return;
   }
@@ -313,15 +285,9 @@ function updateBadge() {
 // ---- 事件绑定 ----
 function bindEvents() {
   // 添加关键词
-  $('#addKeywordBtn').addEventListener('click', () => addKeyword('keyword'));
+  $('#addKeywordBtn').addEventListener('click', () => addKeyword());
   $('#keywordInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') addKeyword('keyword');
-  });
-
-  // 添加热点范围
-  $('#addScopeBtn').addEventListener('click', () => addKeyword('scope'));
-  $('#scopeInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') addKeyword('scope');
+    if (e.key === 'Enter') addKeyword();
   });
 
   // 刷新热点
@@ -404,13 +370,13 @@ function bindEvents() {
   });
 }
 
-async function addKeyword(type) {
-  const input = type === 'scope' ? $('#scopeInput') : $('#keywordInput');
+async function addKeyword() {
+  const input = $('#keywordInput');
   const keyword = input.value.trim();
   if (!keyword) return;
 
   try {
-    const result = await API.addKeyword(keyword, type);
+    const result = await API.addKeyword(keyword);
     if (result.error) {
       showToast(result.error, 'alert');
       return;

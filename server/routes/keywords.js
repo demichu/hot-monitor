@@ -31,7 +31,7 @@ router.post('/', (req, res) => {
   const newKeyword = {
     id: generateId(),
     keyword: sanitized,
-    type, // 'keyword' = 关键词监控, 'scope' = 热点范围
+    type: 'keyword',
     active: true,
     createdAt: new Date().toISOString(),
   };

@@ -27,7 +27,9 @@ async function throttle() {
  */
 async function searchBaidu(query, maxResults = 10) {
   await throttle();
-  const url = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}&rn=${maxResults}`;
+  // 添加时间限定词提升结果时效性
+  const timeQuery = `${query} 最新`;
+  const url = `https://www.baidu.com/s?wd=${encodeURIComponent(timeQuery)}&rn=${maxResults}`;
 
   try {
     const resp = await fetch(url, {
