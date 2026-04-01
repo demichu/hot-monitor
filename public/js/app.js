@@ -218,6 +218,60 @@ function renderHotspots() {
   list.innerHTML = html;
 }
 
+// ---- 热点搜索过滤 ----
+function filterHotspots(query) {
+  if (!query) {
+    renderHotspots();
+    return;
+  }
+  const filtered = hotspots.map(group => ({
+    ...group,
+    hotspots: (group.hotspots || []).filter(h =>
+      (h.title || '').toLowerCase().includes(query) ||
+      (h.summary || '').toLowerCase().includes(query)
+    ),
+  })).filter(group => group.hotspots.length > 0);
+
+  renderHotspotsData(filtered);
+}
+
+function renderHotspotsData(data) {
+  const list = $('#hotspotsList');
+  if (!data.length) {
+    list.innerHTML = `<div class="empty-state"><p>无匹配热点</p></div>`;
+    return;
+  }
+  let html = '';
+  for (const group of data) {
+    const items = group.hotspots || [];
+    html += `<div class="scope-label">${escapeHtml(group.scope)} · 更新于 ${formatTime(group.updatedAt)}</div>`;
+    items.forEach((h, i) => {
+      const rank = i + 1;
+      const heatColor = h.heat > 70 ? 'var(--rose)' : h.heat > 40 ? 'var(--amber)' : 'var(--primary)';
+      const tagClass = `tag-${h.category || 'trend'}`;
+      html += `
+        <div class="hotspot-item">
+          <div class="hotspot-rank ${rank <= 3 ? 'top3' : ''}">${String(rank).padStart(2, '0')}</div>
+          <div class="hotspot-content">
+            <div class="hotspot-title">${escapeHtml(h.title)}</div>
+            <div class="hotspot-summary">${escapeHtml(h.summary || '')}</div>
+            <div class="hotspot-meta">
+              <span class="hotspot-tag ${tagClass}">${(h.category || 'TREND').toUpperCase()}</span>
+              <span class="hotspot-heat">HEAT ${h.heat || 0}
+                <span class="heat-bar"><span class="heat-bar-fill" style="width:${h.heat || 0}%; background:${heatColor}"></span></span>
+              </span>
+            </div>
+            ${h.sources && h.sources.length ? `
+              <div class="hotspot-sources-list">
+                ${h.sources.slice(0, 3).map(s => `<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer" class="hotspot-source-link" title="${escapeHtml(s.title)}">${escapeHtml(s.source)}</a>`).join('')}
+              </div>` : ''}
+          </div>
+        </div>`;
+    });
+  }
+  list.innerHTML = html;
+}
+
 // ---- 渲染：通知列表 ----
 function renderNotifications() {
   renderNotifList($('#notificationsList'), notifications.slice(0, 20));
@@ -304,6 +358,12 @@ function bindEvents() {
     unreadCount = 0;
     renderNotifications();
     updateBadge();
+  });
+
+  // 热点搜索过滤
+  $('#hotspotSearch').addEventListener('input', (e) => {
+    const query = e.target.value.trim().toLowerCase();
+    filterHotspots(query);
   });
 
   // 事件委托：关键词操作

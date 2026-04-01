@@ -521,6 +521,43 @@ body {
   background: var(--violet);
 }
 
+/* ---- 热点搜索框 ---- */
+.hotspot-search-wrap {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.hotspot-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.hotspot-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.hotspot-search-input:focus {
+  border-color: var(--primary-border);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+}
+
+.hotspot-search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
 /* ---- 热点列表 ---- */
 .hotspots-list {
   display: flex;
@@ -758,7 +795,7 @@ body {
 /* ---- 数据源 ---- */
 .sources-grid {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -766,10 +803,12 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   background: var(--bg);
   border-radius: var(--radius);
   transition: all 0.2s;
+  flex: 1 1 auto;
+  min-width: 120px;
 }
 
 .source-item:hover {

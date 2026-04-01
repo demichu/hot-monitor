@@ -9,11 +9,17 @@ const parser = new RssParser({
 });
 
 const DEFAULT_FEEDS = [
+  // 英文科技源
   { name: 'Hacker News', url: 'https://hnrss.org/frontpage', category: 'tech' },
   { name: 'TechCrunch AI', url: 'https://techcrunch.com/category/artificial-intelligence/feed/', category: 'ai' },
   { name: 'The Verge AI', url: 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml', category: 'ai' },
   { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/technology-lab', category: 'tech' },
   { name: 'MIT Tech Review', url: 'https://www.technologyreview.com/feed/', category: 'ai' },
+  // 中文科技源
+  { name: '少数派', url: 'https://sspai.com/feed', category: 'tech-cn' },
+  { name: 'V2EX', url: 'https://www.v2ex.com/feed/tab/tech.xml', category: 'tech-cn' },
+  { name: 'InfoQ中文', url: 'https://www.infoq.cn/feed', category: 'tech-cn' },
+  { name: '机器之心', url: 'https://www.jiqizhixin.com/rss', category: 'ai-cn' },
 ];
 
 /**

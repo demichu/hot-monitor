@@ -7,20 +7,21 @@ const USER_AGENTS = [
   'Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0',
 ];
 
-let lastRequestTime = 0;
-const MIN_INTERVAL = 3000; // 最小 3 秒间隔
+// 每个引擎独立限流
+const lastRequestTimes = { ddg: 0, bing: 0, google: 0 };
+const MIN_INTERVAL = 3000;
 
 function randomUA() {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 }
 
-async function throttle() {
+async function throttle(engine) {
   const now = Date.now();
-  const elapsed = now - lastRequestTime;
+  const elapsed = now - (lastRequestTimes[engine] || 0);
   if (elapsed < MIN_INTERVAL) {
     await new Promise(r => setTimeout(r, MIN_INTERVAL - elapsed));
   }
-  lastRequestTime = Date.now();
+  lastRequestTimes[engine] = Date.now();
 }
 
 /**
@@ -30,7 +31,7 @@ async function throttle() {
  * @returns {Promise<Array<{title:string, snippet:string, url:string, source:string}>>}
  */
 async function searchDuckDuckGo(query, maxResults = 10) {
-  await throttle();
+  await throttle('ddg');
   const encoded = encodeURIComponent(query);
   const searchUrl = `https://html.duckduckgo.com/html/?q=${encoded}`;
 
@@ -84,7 +85,7 @@ async function searchDuckDuckGo(query, maxResults = 10) {
  * 通过 Bing 搜索
  */
 async function searchBing(query, maxResults = 10) {
-  await throttle();
+  await throttle('bing');
   const encoded = encodeURIComponent(query);
   const searchUrl = `https://www.bing.com/search?q=${encoded}&setlang=en`;
 
@@ -128,15 +129,74 @@ async function searchBing(query, maxResults = 10) {
 }
 
 /**
- * 聚合搜索：优先 DuckDuckGo，备选 Bing
+ * Google 搜索（HTML 爬取，可能被反爬，作为补充源）
+ */
+async function searchGoogle(query, maxResults = 10) {
+  await throttle('google');
+  const encoded = encodeURIComponent(query);
+  const searchUrl = `https://www.google.com/search?q=${encoded}&num=${maxResults}&hl=en`;
+
+  try {
+    const resp = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': randomUA(),
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      timeout: 10000,
+    });
+
+    if (!resp.ok) {
+      console.warn(`[WebSearch] Google returned ${resp.status}`);
+      return [];
+    }
+
+    const html = await resp.text();
+    const $ = cheerio.load(html);
+    const results = [];
+
+    $('div.g').each((i, el) => {
+      if (results.length >= maxResults) return false;
+      const $el = $(el);
+      const titleEl = $el.find('h3').first();
+      const title = titleEl.text().trim();
+      const linkEl = titleEl.closest('a');
+      const url = linkEl.attr('href') || '';
+      // 获取摘要文本
+      const snippet = $el.find('div[data-sncf], div.VwiC3b, span.aCOpRe').first().text().trim()
+        || $el.find('div > span').first().text().trim();
+
+      if (title && url && url.startsWith('http')) {
+        results.push({ title, snippet: snippet || title, url, source: 'web-search' });
+      }
+    });
+
+    console.log(`[WebSearch] Google "${query}" → ${results.length} results`);
+    return results;
+  } catch (err) {
+    console.error('[WebSearch] Google Error:', err.message);
+    return [];
+  }
+}
+
+/**
+ * 聚合搜索：DDG + Bing + Google 并行，合并去重
  */
 async function search(query, maxResults = 10) {
-  let results = await searchDuckDuckGo(query, maxResults);
-  if (results.length < 3) {
-    const bingResults = await searchBing(query, maxResults);
-    results = deduplicateByUrl([...results, ...bingResults]).slice(0, maxResults);
-  }
-  return results;
+  const [ddg, bing, google] = await Promise.allSettled([
+    searchDuckDuckGo(query, maxResults),
+    searchBing(query, maxResults),
+    searchGoogle(query, maxResults),
+  ]);
+
+  let results = [];
+  if (ddg.status === 'fulfilled') results.push(...ddg.value);
+  if (bing.status === 'fulfilled') results.push(...bing.value);
+  if (google.status === 'fulfilled') results.push(...google.value);
+
+  const deduped = deduplicateByUrl(results);
+  console.log(`[WebSearch] Multi-engine "${query}" → ${deduped.length} unique results`);
+  return deduped;
 }
 
 function deduplicateByUrl(items) {
