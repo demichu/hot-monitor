@@ -1,0 +1,26 @@
+{
+  "name": "hot-monitor",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^2.7.0",
+    "openai": "^6.33.0",
+    "rss-parser": "^3.13.0"
+  }
+}

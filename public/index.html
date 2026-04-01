@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HOT MONITOR // 热点监控站</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- 背景动效 -->
+  <div class="bg-grid"></div>
+  <div class="scanline"></div>
+
+  <!-- 顶部导航 -->
+  <header class="top-bar">
+    <div class="logo">
+      <span class="logo-icon">◈</span>
+      <span class="logo-text">HOT<span class="accent">MONITOR</span></span>
+      <span class="logo-ver">v1.0</span>
+    </div>
+    <div class="top-bar-right">
+      <div class="status-indicator">
+        <span class="pulse-dot"></span>
+        <span id="systemStatus">ONLINE</span>
+      </div>
+      <button class="notif-btn" id="notifBtn" title="通知">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <span class="badge" id="notifBadge" style="display:none">0</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 主内容 -->
+  <main class="container">
+    <!-- Bento Grid 布局 -->
+    <div class="bento-grid">
+
+      <!-- 关键词监控面板 -->
+      <section class="bento-card card-keywords">
+        <div class="card-header">
+          <h2><span class="card-icon">⟐</span> 关键词监控</h2>
+          <span class="card-tag">ALERT MODE</span>
+        </div>
+        <div class="keyword-input-wrap">
+          <input type="text" id="keywordInput" placeholder="输入要监控的关键词..." maxlength="200">
+          <button id="addKeywordBtn" class="btn-neon">+ 添加</button>
+        </div>
+        <div id="keywordList" class="keyword-list">
+          <!-- 动态渲染 -->
+        </div>
+      </section>
+
+      <!-- 热点范围面板 -->
+      <section class="bento-card card-scope">
+        <div class="card-header">
+          <h2><span class="card-icon">◎</span> 热点范围</h2>
+          <span class="card-tag">DISCOVERY</span>
+        </div>
+        <div class="keyword-input-wrap">
+          <input type="text" id="scopeInput" placeholder="输入热点范围 (如 AI编程)..." maxlength="200">
+          <button id="addScopeBtn" class="btn-neon btn-magenta">+ 追踪</button>
+        </div>
+        <div id="scopeList" class="keyword-list">
+          <!-- 动态渲染 -->
+        </div>
+      </section>
+
+      <!-- 实时热点面板 -->
+      <section class="bento-card card-hotspots">
+        <div class="card-header">
+          <h2><span class="card-icon">🔥</span> 实时热点</h2>
+          <div class="card-actions">
+            <button id="refreshHotspotsBtn" class="btn-ghost" title="刷新热点">↻ 刷新</button>
+          </div>
+        </div>
+        <div id="hotspotsList" class="hotspots-list">
+          <div class="empty-state">
+            <div class="radar-sweep"></div>
+            <p>等待扫描中... 添加热点范围后将自动发现热点</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 通知面板 -->
+      <section class="bento-card card-notifications">
+        <div class="card-header">
+          <h2><span class="card-icon">◆</span> 监控通知</h2>
+          <button id="readAllBtn" class="btn-ghost">全部已读</button>
+        </div>
+        <div id="notificationsList" class="notifications-list">
+          <div class="empty-state">
+            <p>暂无通知，正在监控中...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 数据源状态 -->
+      <section class="bento-card card-sources">
+        <div class="card-header">
+          <h2><span class="card-icon">⬡</span> 数据源</h2>
+        </div>
+        <div class="sources-grid">
+          <div class="source-item">
+            <div class="source-icon">🌐</div>
+            <div class="source-name">Web Search</div>
+            <div class="source-status active">在线</div>
+          </div>
+          <div class="source-item">
+            <div class="source-icon">𝕏</div>
+            <div class="source-name">Twitter/X</div>
+            <div class="source-status" id="twitterStatus">待配置</div>
+          </div>
+          <div class="source-item">
+            <div class="source-icon">📡</div>
+            <div class="source-name">RSS Feeds</div>
+            <div class="source-status active">在线</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- 通知弹出面板 -->
+  <div class="notif-panel" id="notifPanel" style="display:none">
+    <div class="notif-panel-header">
+      <h3>通知中心</h3>
+      <button class="btn-ghost" id="closeNotifPanel">✕</button>
+    </div>
+    <div id="notifPanelList" class="notif-panel-list"></div>
+  </div>
+
+  <!-- Toast 通知 -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
