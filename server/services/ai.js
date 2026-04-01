@@ -2,15 +2,11 @@ require('dotenv').config();
 const OpenAI = require('openai');
 
 const openai = new OpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY,
-  defaultHeaders: {
-    'HTTP-Referer': 'https://hot-monitor.local',
-    'X-OpenRouter-Title': 'Hot Monitor',
-  },
+  baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
+  apiKey: process.env.ARK_API_KEY,
 });
 
-const MODEL = 'deepseek/deepseek-v3.2';
+const MODEL = 'deepseek-v3-2-251201';
 
 /** 从可能包含 markdown 代码块的文本中提取 JSON */
 function extractJSON(text) {
@@ -59,7 +55,6 @@ ${items.map((it, i) => `[${i + 1}] 标题: ${it.title}\n    摘要: ${it.snippet
       ],
       temperature: 0.2,
       max_tokens: 2000,
-      response_format: { type: 'json_object' },
     });
 
     const text = completion.choices[0].message.content;
@@ -117,7 +112,6 @@ ${items.map((it, i) => `[${i + 1}] 标题: ${it.title}\n    摘要: ${it.snippet
       ],
       temperature: 0.3,
       max_tokens: 3000,
-      response_format: { type: 'json_object' },
     });
 
     const text = completion.choices[0].message.content;
