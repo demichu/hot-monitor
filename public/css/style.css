@@ -985,7 +985,7 @@ body {
   background: rgba(139, 92, 246, 0.08);
 }
 
-/* 底部栏（可信度 + 抓取时间） */
+/* 底部栏（双评分 + 抓取时间） */
 .notif-footer {
   display: flex;
   justify-content: space-between;
@@ -994,6 +994,23 @@ body {
   color: var(--text-tertiary);
   margin-top: 6px;
 }
+
+.notif-scores {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notif-credibility,
+.notif-relevance {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.relevance-high { color: var(--primary); }
+.relevance-mid  { color: var(--emerald); }
+.relevance-low  { color: var(--text-tertiary); }
 
 .notif-capture-time {
   font-size: 11px;

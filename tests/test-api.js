@@ -176,10 +176,10 @@ describe('Status API', () => {
 describe('Frontend filter logic (unit tests)', () => {
   // Test the filter/sort logic in isolation
   const notifications = [
-    { id: '1', keyword: 'AI', title: 'AI News', credibility: 80, read: false, createdAt: new Date().toISOString() },
-    { id: '2', keyword: 'AI', title: 'Old AI', credibility: 30, read: true, createdAt: new Date(Date.now() - 86400000 * 2).toISOString() },
-    { id: '3', keyword: 'GPT', title: 'GPT Update', credibility: 65, read: false, createdAt: new Date(Date.now() - 3600000).toISOString() },
-    { id: '4', keyword: 'GPT', title: 'GPT Old', credibility: 90, read: true, createdAt: new Date(Date.now() - 86400000 * 5).toISOString() },
+    { id: '1', keyword: 'AI', title: 'AI News', credibility: 80, relevance: 90, read: false, createdAt: new Date().toISOString() },
+    { id: '2', keyword: 'AI', title: 'Old AI', credibility: 30, relevance: 20, read: true, createdAt: new Date(Date.now() - 86400000 * 2).toISOString() },
+    { id: '3', keyword: 'GPT', title: 'GPT Update', credibility: 65, relevance: 75, read: false, createdAt: new Date(Date.now() - 3600000).toISOString() },
+    { id: '4', keyword: 'GPT', title: 'GPT Old', credibility: 90, relevance: 85, read: true, createdAt: new Date(Date.now() - 86400000 * 5).toISOString() },
   ];
 
   function filter(items, { filterKeywords = new Set(), filterRead = '', filterCredibility = '', filterTime = '', sortMode = 'time-desc' }) {
@@ -198,6 +198,7 @@ describe('Frontend filter logic (unit tests)', () => {
     }
     if (sortMode === 'time-asc') result.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     else if (sortMode === 'credibility') result.sort((a, b) => (b.credibility || 0) - (a.credibility || 0));
+    else if (sortMode === 'relevance') result.sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
     else result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     return result;
   }
@@ -274,23 +275,44 @@ describe('Frontend filter logic (unit tests)', () => {
     const result = filter(notifications, {});
     assert.strictEqual(result.length, 4);
   });
+
+  it('sorts by relevance descending', () => {
+    const result = filter(notifications, { sortMode: 'relevance' });
+    for (let i = 1; i < result.length; i++) {
+      assert.ok((result[i - 1].relevance || 0) >= (result[i].relevance || 0));
+    }
+  });
 });
 
 describe('Enriched notification fields', () => {
-  it('notification objects can carry new metadata fields', () => {
+  it('notification objects carry all metadata fields including relevance', () => {
     const notif = {
       id: 'test1', keyword: 'AI', title: 'Test', snippet: 'Test snippet',
       url: 'https://news.ycombinator.com/item?id=123', source: 'hackernews',
-      credibility: 85, verifyReason: 'Official source with details',
+      credibility: 85, relevance: 92, verifyReason: 'Official source with details',
       publishedAt: '2026-03-31T10:00:00Z', engagement: 150, points: 120,
       comments: 30, author: 'testuser', read: false, createdAt: new Date().toISOString(),
     };
     assert.strictEqual(notif.verifyReason, 'Official source with details');
+    assert.strictEqual(notif.relevance, 92);
     assert.strictEqual(notif.points, 120);
     assert.strictEqual(notif.comments, 30);
     assert.strictEqual(notif.author, 'testuser');
     assert.strictEqual(notif.publishedAt, '2026-03-31T10:00:00Z');
-    assert.strictEqual(notif.engagement, 150);
+  });
+
+  it('dual threshold filtering: relevance >= 60 AND credibility >= 40', () => {
+    const verifyResults = [
+      { index: 1, relevance: 90, credibility: 80, isReliable: true, reason: 'Direct news' },
+      { index: 2, relevance: 25, credibility: 75, isReliable: true, reason: 'Tutorial, not news' },
+      { index: 3, relevance: 70, credibility: 30, isReliable: false, reason: 'Low quality source' },
+      { index: 4, relevance: 65, credibility: 55, isReliable: true, reason: 'Related discussion' },
+      { index: 5, relevance: 40, credibility: 80, isReliable: true, reason: 'Barely mentions topic' },
+    ];
+    const passed = verifyResults.filter(v => v.isReliable && v.relevance >= 60 && v.credibility >= 40);
+    assert.strictEqual(passed.length, 2); // only #1 and #4
+    assert.strictEqual(passed[0].index, 1);
+    assert.strictEqual(passed[1].index, 4);
   });
 
   it('domain extraction works for various URLs', () => {

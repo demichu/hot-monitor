@@ -47,6 +47,9 @@ async function runKeywordMonitor() {
     try {
       console.log(`\n[${timestamp()}] [Monitor] ── 正在搜索: "${kw.keyword}" ──`);
 
+      // 0. 查询扩展
+      const queryExpansion = await ai.expandQuery(kw.keyword);
+
       // 1. 聚合搜索
       const items = await aggregator.aggregate(kw.keyword);
       if (!items.length) {
@@ -63,24 +66,28 @@ async function runKeywordMonitor() {
         continue;
       }
 
-      // 3. AI 验证内容真伪
+      // 3. AI 验证内容（传入关键词 + 扩展词，双评分）
       const verifyBatch = newItems.slice(0, 10);
       console.log(`[${timestamp()}] [AI] 正在验证 ${verifyBatch.length} 条内容...`);
-      const verifyResults = await ai.verifyContent(verifyBatch);
+      const verifyResults = await ai.verifyContent(verifyBatch, kw.keyword, queryExpansion.expanded);
 
-      // 4. 只保留可信的新内容
+      // 4. 双门槛过滤：relevance >= 60 AND credibility >= 40
       const reliableItems = [];
       for (let i = 0; i < verifyBatch.length; i++) {
         const verify = verifyResults.find(v => v.index === i + 1);
-        if (verify && verify.isReliable && verify.credibility >= 40) {
+        if (!verify) continue;
+        const rel = verify.relevance || 0;
+        const cred = verify.credibility || 0;
+        if (verify.isReliable && rel >= 60 && cred >= 40) {
           reliableItems.push({
             ...newItems[i],
-            credibility: verify.credibility,
+            credibility: cred,
+            relevance: rel,
             verifyReason: verify.reason,
           });
-          console.log(`[${timestamp()}] [AI] ✓ [${verify.credibility}分] ${newItems[i].title.slice(0, 50)}`);
-        } else if (verify) {
-          console.log(`[${timestamp()}] [AI] ✗ [${verify.credibility}分] ${newItems[i].title.slice(0, 50)} - ${verify.reason}`);
+          console.log(`[${timestamp()}] [AI] ✓ [相关${rel} 可信${cred}] ${newItems[i].title.slice(0, 50)}`);
+        } else {
+          console.log(`[${timestamp()}] [AI] ✗ [相关${rel} 可信${cred}] ${newItems[i].title.slice(0, 50)} - ${verify.reason}`);
         }
       }
 
@@ -102,6 +109,7 @@ async function runKeywordMonitor() {
             url: item.url,
             source: item.source,
             credibility: item.credibility,
+            relevance: item.relevance || 0,
             verifyReason: item.verifyReason || '',
             publishedAt: item.createdAt || '',
             engagement: item.engagement || 0,
@@ -152,6 +160,10 @@ async function runKeywordMonitorForIds(keywordIds) {
   for (const kw of selected) {
     try {
       console.log(`\n[${timestamp()}] [Monitor] ── 正在搜索: "${kw.keyword}" ──`);
+
+      // 0. 查询扩展
+      const queryExpansion = await ai.expandQuery(kw.keyword);
+
       const items = await aggregator.aggregate(kw.keyword);
       if (!items.length) {
         console.log(`[${timestamp()}] [Monitor] "${kw.keyword}" → 无结果，跳过`);
@@ -168,16 +180,19 @@ async function runKeywordMonitorForIds(keywordIds) {
 
       const verifyBatch = newItems.slice(0, 10);
       console.log(`[${timestamp()}] [AI] 正在验证 ${verifyBatch.length} 条内容...`);
-      const verifyResults = await ai.verifyContent(verifyBatch);
+      const verifyResults = await ai.verifyContent(verifyBatch, kw.keyword, queryExpansion.expanded);
 
       const reliableItems = [];
       for (let i = 0; i < verifyBatch.length; i++) {
         const verify = verifyResults.find(v => v.index === i + 1);
-        if (verify && verify.isReliable && verify.credibility >= 40) {
-          reliableItems.push({ ...newItems[i], credibility: verify.credibility, verifyReason: verify.reason });
-          console.log(`[${timestamp()}] [AI] ✓ [${verify.credibility}分] ${newItems[i].title.slice(0, 50)}`);
-        } else if (verify) {
-          console.log(`[${timestamp()}] [AI] ✗ [${verify.credibility}分] ${newItems[i].title.slice(0, 50)} - ${verify.reason}`);
+        if (!verify) continue;
+        const rel = verify.relevance || 0;
+        const cred = verify.credibility || 0;
+        if (verify.isReliable && rel >= 60 && cred >= 40) {
+          reliableItems.push({ ...newItems[i], credibility: cred, relevance: rel, verifyReason: verify.reason });
+          console.log(`[${timestamp()}] [AI] ✓ [相关${rel} 可信${cred}] ${newItems[i].title.slice(0, 50)}`);
+        } else {
+          console.log(`[${timestamp()}] [AI] ✗ [相关${rel} 可信${cred}] ${newItems[i].title.slice(0, 50)} - ${verify.reason}`);
         }
       }
 
@@ -190,6 +205,7 @@ async function runKeywordMonitorForIds(keywordIds) {
             id: generateId(), type: 'keyword_alert', keyword: kw.keyword,
             title: item.title, snippet: item.snippet, url: item.url, source: item.source,
             credibility: item.credibility,
+            relevance: item.relevance || 0,
             verifyReason: item.verifyReason || '',
             publishedAt: item.createdAt || '',
             engagement: item.engagement || 0,

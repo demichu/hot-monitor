@@ -176,6 +176,8 @@ function getFilteredNotifications() {
     items.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   } else if (sortMode === 'credibility') {
     items.sort((a, b) => (b.credibility || 0) - (a.credibility || 0));
+  } else if (sortMode === 'relevance') {
+    items.sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
   } else if (sortMode !== 'keyword-group') {
     items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }
@@ -258,6 +260,7 @@ function renderGroupedNotifList(container, items) {
 
 function renderNotifItemHTML(n) {
   const credClass = n.credibility >= 70 ? 'credibility-high' : n.credibility >= 40 ? 'credibility-mid' : 'credibility-low';
+  const relClass = n.relevance >= 80 ? 'relevance-high' : n.relevance >= 60 ? 'relevance-mid' : 'relevance-low';
   const domain = extractDomain(n.url);
   const sourceLabel = getSourceLabel(n.source);
 
@@ -297,7 +300,10 @@ function renderNotifItemHTML(n) {
       ${infoBarHTML}
       ${reasonHTML}
       <div class="notif-footer">
-        <span class="notif-credibility ${credClass}">可信度 ${n.credibility || '?'}</span>
+        <div class="notif-scores">
+          <span class="notif-credibility ${credClass}">可信度 ${n.credibility || '?'}</span>
+          ${n.relevance ? `<span class="notif-relevance ${relClass}">相关性 ${n.relevance}</span>` : ''}
+        </div>
         <span class="notif-capture-time">抓取于 ${formatTime(n.createdAt)}</span>
       </div>
     </div>`;
