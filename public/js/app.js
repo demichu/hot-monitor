@@ -264,12 +264,11 @@ function renderNotifItemHTML(n) {
   const domain = extractDomain(n.url);
   const sourceLabel = getSourceLabel(n.source);
 
-  // 发布时间（醒目展示）
+  // 发布时间（放在 header 行右侧）
   const publishedText = n.publishedAt ? formatTime(n.publishedAt) : '';
 
-  // 互动数据行
+  // 互动数据 chips（不含发布时间）
   const infoParts = [];
-  if (publishedText) infoParts.push(`<span class="info-chip info-time">📅 ${publishedText}</span>`);
   if (n.points) infoParts.push(`<span class="info-chip info-points">▲ ${n.points}</span>`);
   if (n.comments) infoParts.push(`<span class="info-chip info-comments">💬 ${n.comments}</span>`);
   if (n.author) infoParts.push(`<span class="info-chip info-author">👤 ${escapeHtml(n.author)}</span>`);
@@ -277,13 +276,10 @@ function renderNotifItemHTML(n) {
     ? `<div class="notif-info-bar">${infoParts.join('')}</div>`
     : '';
 
-  // AI 理由（内联展示，可折叠）
+  // AI 分析（始终展开，无折叠）
   const reasonHTML = n.verifyReason
-    ? `<div class="notif-reason-wrap expanded">
-        <button class="notif-reason-toggle" onclick="this.parentElement.classList.toggle('expanded')">
-          <svg class="reason-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-          AI分析
-        </button>
+    ? `<div class="notif-reason-wrap">
+        <span class="notif-reason-label">AI分析</span>
         <div class="notif-reason-text">${escapeHtml(n.verifyReason)}</div>
       </div>`
     : '';
@@ -293,6 +289,7 @@ function renderNotifItemHTML(n) {
       <div class="notif-head">
         <div class="notif-keyword">[${escapeHtml(n.keyword || '')}]</div>
         <span class="notif-source-tag ${sourceLabel.cls}">${sourceLabel.text}</span>
+        ${publishedText ? `<span class="notif-publish-time">📅 ${publishedText}</span>` : ''}
         <span class="notif-domain" title="${escapeHtml(n.url || '')}">${domain}</span>
       </div>
       <div class="notif-title"><a href="${escapeHtml(n.url || '#')}" target="_blank" rel="noopener noreferrer">${escapeHtml(n.title)}</a></div>
@@ -301,8 +298,8 @@ function renderNotifItemHTML(n) {
       ${reasonHTML}
       <div class="notif-footer">
         <div class="notif-scores">
-          <span class="notif-credibility ${credClass}">可信度 ${n.credibility || '?'}</span>
-          ${n.relevance ? `<span class="notif-relevance ${relClass}">相关性 ${n.relevance}</span>` : ''}
+          <span class="notif-credibility ${credClass}">来源质量 ${n.credibility || '?'}</span>
+          ${n.relevance ? `<span class="notif-relevance ${relClass}">匹配度 ${n.relevance}</span>` : ''}
         </div>
         <span class="notif-capture-time">抓取于 ${formatTime(n.createdAt)}</span>
       </div>
@@ -421,23 +418,6 @@ function bindEvents() {
       e.currentTarget.style.display = 'none';
       renderNotifications();
     }
-  });
-
-  // 一键展开/折叠所有AI理由（默认已展开）
-  let allReasonsExpanded = true;
-  $('#toggleAllReasons').addEventListener('click', () => {
-    allReasonsExpanded = !allReasonsExpanded;
-    const btn = $('#toggleAllReasons');
-    document.querySelectorAll('.notif-reason-wrap').forEach(el => {
-      if (allReasonsExpanded) {
-        el.classList.add('expanded');
-      } else {
-        el.classList.remove('expanded');
-      }
-    });
-    btn.innerHTML = allReasonsExpanded
-      ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg> 折叠全部理由'
-      : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg> 展开全部理由';
   });
 
   // 一键重置所有筛选

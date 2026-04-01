@@ -119,8 +119,8 @@
             <select id="sortSelect" class="filter-select">
               <option value="time-desc">最新优先</option>
               <option value="time-asc">最早优先</option>
-              <option value="relevance">相关性优先</option>
-              <option value="credibility">可信度优先</option>
+              <option value="relevance">匹配度优先</option>
+              <option value="credibility">来源质量优先</option>
               <option value="keyword-group">按关键词分组</option>
             </select>
             <button id="keywordFilterBtn" class="filter-select filter-btn" type="button">
@@ -132,7 +132,7 @@
               <option value="read">已读</option>
             </select>
             <select id="credFilter" class="filter-select">
-              <option value="">全部可信度</option>
+              <option value="">全部来源质量</option>
               <option value="high">高 (≥70)</option>
               <option value="mid">中 (40-69)</option>
               <option value="low">低 (&lt;40)</option>
@@ -147,14 +147,6 @@
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
               </svg>
-            </button>
-          </div>
-          <div class="notif-toolbar">
-            <button id="toggleAllReasons" class="btn-ghost btn-toggle-reasons" title="展开/折叠所有AI分析理由">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 15l-6-6-6 6"/>
-              </svg>
-              折叠全部理由
             </button>
           </div>
           <div id="notificationsList" class="notifications-list">
