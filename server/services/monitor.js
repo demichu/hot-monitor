@@ -102,6 +102,12 @@ async function runKeywordMonitor() {
             url: item.url,
             source: item.source,
             credibility: item.credibility,
+            verifyReason: item.verifyReason || '',
+            publishedAt: item.createdAt || '',
+            engagement: item.engagement || 0,
+            points: item.points || 0,
+            comments: item.comments || 0,
+            author: item.author || '',
             read: false,
             createdAt: new Date().toISOString(),
           };
@@ -183,7 +189,14 @@ async function runKeywordMonitorForIds(keywordIds) {
           const notif = {
             id: generateId(), type: 'keyword_alert', keyword: kw.keyword,
             title: item.title, snippet: item.snippet, url: item.url, source: item.source,
-            credibility: item.credibility, read: false, createdAt: new Date().toISOString(),
+            credibility: item.credibility,
+            verifyReason: item.verifyReason || '',
+            publishedAt: item.createdAt || '',
+            engagement: item.engagement || 0,
+            points: item.points || 0,
+            comments: item.comments || 0,
+            author: item.author || '',
+            read: false, createdAt: new Date().toISOString(),
           };
           notifications.unshift(notif);
           broadcastSSE('notification', notif);

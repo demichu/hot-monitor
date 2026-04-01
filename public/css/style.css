@@ -624,34 +624,88 @@ body {
   font-size: 12px;
 }
 
-/* ---- 关键词筛选弹出面板 ---- */
-.kw-filter-panel {
-  position: absolute;
-  z-index: 50;
-  top: 100%;
-  left: 0;
-  width: 280px;
-  max-height: 320px;
+/* ---- Modal 遮罩层 ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  margin-top: 4px;
+  animation: modalSlideIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+}
+
+.modal-close-btn:hover {
+  background: var(--bg-input);
+  color: var(--text);
+}
+
+/* ---- 关键词筛选 Modal ---- */
+.kw-filter-modal {
+  width: 360px;
+  max-height: 420px;
   display: flex;
   flex-direction: column;
 }
 
 .kw-filter-search-wrap {
-  padding: 8px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
 }
 
 .kw-filter-search {
   width: 100%;
-  padding: 7px 10px;
+  padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  font-size: 12px;
+  font-size: 13px;
   font-family: var(--font-sans);
   color: var(--text);
   background: var(--bg);
@@ -662,6 +716,7 @@ body {
 
 .kw-filter-search:focus {
   border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
 }
 
 .kw-filter-search::placeholder {
@@ -671,16 +726,16 @@ body {
 .kw-filter-list {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 8px;
-  max-height: 200px;
+  padding: 6px 10px;
+  max-height: 240px;
 }
 
 .kw-filter-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
   color: var(--text);
@@ -693,24 +748,24 @@ body {
 
 .kw-filter-item input[type="checkbox"] {
   accent-color: var(--primary);
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   cursor: pointer;
 }
 
 .kw-filter-empty {
-  padding: 16px;
+  padding: 20px;
   text-align: center;
   color: var(--text-tertiary);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .kw-filter-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 10px 14px;
   border-top: 1px solid var(--border);
 }
 
@@ -746,8 +801,35 @@ body {
   overflow-y: auto;
 }
 
+/* 通知列表工具栏 */
+.notif-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.btn-toggle-reasons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-toggle-reasons:hover {
+  color: var(--primary);
+  border-color: var(--primary-border);
+  background: var(--primary-bg);
+}
+
 .notif-item {
-  padding: 12px 14px;
+  padding: 14px 16px;
   background: var(--bg);
   border: 1px solid transparent;
   border-radius: var(--radius);
@@ -770,11 +852,53 @@ body {
   border-left-color: var(--primary);
 }
 
+/* 通知头部（关键词 + 来源标签） */
+.notif-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
 .notif-keyword {
   font-size: 11px;
   color: var(--primary);
   font-weight: 600;
-  margin-bottom: 4px;
+}
+
+.notif-source-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.src-hn {
+  background: #ff660015;
+  color: #ff6600;
+  border: 1px solid #ff660030;
+}
+
+.src-rss {
+  background: var(--emerald-bg);
+  color: var(--emerald);
+  border: 1px solid var(--emerald-border);
+}
+
+.src-baidu {
+  background: #2932e115;
+  color: #2932e1;
+  border: 1px solid #2932e130;
+}
+
+.src-web {
+  background: var(--violet-bg);
+  color: var(--violet);
+  border: 1px solid var(--violet-border);
 }
 
 .notif-title {
@@ -798,7 +922,7 @@ body {
 .notif-snippet {
   font-size: 12px;
   color: var(--text-secondary);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -806,12 +930,69 @@ body {
   line-height: 1.5;
 }
 
+/* 通知 meta（两端对齐） */
 .notif-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 11px;
   color: var(--text-tertiary);
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.notif-meta-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.notif-meta-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.meta-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: var(--radius-full);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+}
+
+.meta-points {
+  color: #ff6600;
+  background: #ff660010;
+}
+
+.meta-comments {
+  color: var(--primary);
+  background: var(--primary-bg);
+}
+
+.meta-author {
+  color: var(--violet);
+  background: var(--violet-bg);
+}
+
+.meta-published {
+  color: var(--text-secondary);
+  background: var(--bg-input);
+}
+
+.meta-domain {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .notif-credibility {
@@ -823,6 +1004,55 @@ body {
 .credibility-high { color: var(--emerald); }
 .credibility-mid  { color: var(--amber); }
 .credibility-low  { color: var(--rose); }
+
+/* AI 分析理由（折叠） */
+.notif-reason-wrap {
+  margin-top: 8px;
+  border-top: 1px dashed var(--border);
+  padding-top: 6px;
+}
+
+.notif-reason-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  padding: 2px 0;
+  transition: color 0.15s;
+}
+
+.notif-reason-toggle:hover {
+  color: var(--primary);
+}
+
+.reason-chevron {
+  transition: transform 0.2s;
+}
+
+.notif-reason-wrap.expanded .reason-chevron {
+  transform: rotate(180deg);
+}
+
+.notif-reason-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  padding: 6px 0 2px 14px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.25s ease, opacity 0.2s;
+}
+
+.notif-reason-wrap.expanded .notif-reason-text {
+  max-height: 200px;
+  opacity: 1;
+}
 
 /* ---- 空状态 ---- */
 .empty-state {
@@ -975,9 +1205,9 @@ body {
     width: auto;
   }
 
-  .kw-filter-panel {
-    width: calc(100vw - 60px);
-    max-width: 280px;
+  .kw-filter-modal {
+    width: calc(100vw - 40px);
+    max-width: 360px;
   }
 
 }

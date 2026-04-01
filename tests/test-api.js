@@ -275,3 +275,48 @@ describe('Frontend filter logic (unit tests)', () => {
     assert.strictEqual(result.length, 4);
   });
 });
+
+describe('Enriched notification fields', () => {
+  it('notification objects can carry new metadata fields', () => {
+    const notif = {
+      id: 'test1', keyword: 'AI', title: 'Test', snippet: 'Test snippet',
+      url: 'https://news.ycombinator.com/item?id=123', source: 'hackernews',
+      credibility: 85, verifyReason: 'Official source with details',
+      publishedAt: '2026-03-31T10:00:00Z', engagement: 150, points: 120,
+      comments: 30, author: 'testuser', read: false, createdAt: new Date().toISOString(),
+    };
+    assert.strictEqual(notif.verifyReason, 'Official source with details');
+    assert.strictEqual(notif.points, 120);
+    assert.strictEqual(notif.comments, 30);
+    assert.strictEqual(notif.author, 'testuser');
+    assert.strictEqual(notif.publishedAt, '2026-03-31T10:00:00Z');
+    assert.strictEqual(notif.engagement, 150);
+  });
+
+  it('domain extraction works for various URLs', () => {
+    function extractDomain(url) {
+      if (!url) return '';
+      try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
+    }
+    assert.strictEqual(extractDomain('https://www.zhihu.com/question/123'), 'zhihu.com');
+    assert.strictEqual(extractDomain('https://news.ycombinator.com/item?id=1'), 'news.ycombinator.com');
+    assert.strictEqual(extractDomain('https://github.com/test/repo'), 'github.com');
+    assert.strictEqual(extractDomain(''), '');
+    assert.strictEqual(extractDomain(null), '');
+  });
+
+  it('source label mapping works', () => {
+    function getSourceLabel(source) {
+      if (!source) return { text: 'Web', cls: 'src-web' };
+      if (source === 'hackernews') return { text: 'HN', cls: 'src-hn' };
+      if (source.startsWith('rss:')) return { text: 'RSS', cls: 'src-rss' };
+      if (source === 'baidu') return { text: '百度', cls: 'src-baidu' };
+      return { text: 'Web', cls: 'src-web' };
+    }
+    assert.strictEqual(getSourceLabel('hackernews').text, 'HN');
+    assert.strictEqual(getSourceLabel('rss:Hacker News').text, 'RSS');
+    assert.strictEqual(getSourceLabel('baidu').text, '百度');
+    assert.strictEqual(getSourceLabel('web-search').text, 'Web');
+    assert.strictEqual(getSourceLabel(null).text, 'Web');
+  });
+});

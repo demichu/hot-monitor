@@ -258,15 +258,53 @@ function renderGroupedNotifList(container, items) {
 
 function renderNotifItemHTML(n) {
   const credClass = n.credibility >= 70 ? 'credibility-high' : n.credibility >= 40 ? 'credibility-mid' : 'credibility-low';
+  const domain = extractDomain(n.url);
+  const sourceLabel = getSourceLabel(n.source);
+
+  // 互动数据
+  let engagementHTML = '';
+  const engagementParts = [];
+  if (n.points) engagementParts.push(`<span class="meta-tag meta-points">▲ ${n.points}</span>`);
+  if (n.comments) engagementParts.push(`<span class="meta-tag meta-comments">💬 ${n.comments}</span>`);
+  if (n.author) engagementParts.push(`<span class="meta-tag meta-author">@${escapeHtml(n.author)}</span>`);
+  if (engagementParts.length) engagementHTML = engagementParts.join('');
+
+  // 发布时间
+  const publishedHTML = n.publishedAt
+    ? `<span class="meta-tag meta-published" title="原帖发布时间">📅 ${formatTime(n.publishedAt)}</span>`
+    : '';
+
+  // AI 理由（可折叠）
+  const reasonHTML = n.verifyReason
+    ? `<div class="notif-reason-wrap">
+        <button class="notif-reason-toggle" onclick="this.parentElement.classList.toggle('expanded')">
+          <svg class="reason-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          AI分析
+        </button>
+        <div class="notif-reason-text">${escapeHtml(n.verifyReason)}</div>
+      </div>`
+    : '';
+
   return `
     <div class="notif-item ${n.read ? '' : 'unread'}" data-id="${n.id}">
-      <div class="notif-keyword">[${escapeHtml(n.keyword || '')}]</div>
+      <div class="notif-head">
+        <div class="notif-keyword">[${escapeHtml(n.keyword || '')}]</div>
+        <span class="notif-source-tag ${sourceLabel.cls}">${sourceLabel.text}</span>
+      </div>
       <div class="notif-title"><a href="${escapeHtml(n.url || '#')}" target="_blank" rel="noopener noreferrer">${escapeHtml(n.title)}</a></div>
       <div class="notif-snippet">${escapeHtml(n.snippet || '')}</div>
       <div class="notif-meta">
-        <span class="notif-credibility ${credClass}">可信度 ${n.credibility || '?'}</span>
-        <span>${formatTime(n.createdAt)}</span>
+        <div class="notif-meta-left">
+          <span class="notif-credibility ${credClass}">可信度 ${n.credibility || '?'}</span>
+          ${publishedHTML}
+          ${engagementHTML}
+        </div>
+        <div class="notif-meta-right">
+          <span class="meta-domain" title="${escapeHtml(n.url || '')}">${domain}</span>
+          <span>${formatTime(n.createdAt)}</span>
+        </div>
       </div>
+      ${reasonHTML}
     </div>`;
 }
 
@@ -332,17 +370,14 @@ function bindEvents() {
   $('#credFilter').addEventListener('change', (e) => { filterCredibility = e.target.value; renderNotifications(); });
   $('#timeFilter').addEventListener('change', (e) => { filterTime = e.target.value; renderNotifications(); });
 
-  // 关键词筛选面板
+  // 关键词筛选 Modal
   $('#keywordFilterBtn').addEventListener('click', (e) => {
     e.stopPropagation();
-    const panel = $('#kwFilterPanel');
-    const visible = panel.style.display !== 'none';
-    panel.style.display = visible ? 'none' : 'block';
-    if (!visible) {
-      $('#kwFilterSearch').value = '';
-      renderKwFilterPanel('');
-      $('#kwFilterSearch').focus();
-    }
+    const modal = $('#kwFilterModal');
+    modal.style.display = 'flex';
+    $('#kwFilterSearch').value = '';
+    renderKwFilterPanel('');
+    $('#kwFilterSearch').focus();
   });
 
   $('#kwFilterSearch').addEventListener('input', (e) => {
@@ -371,8 +406,37 @@ function bindEvents() {
   });
 
   $('#kwFilterDone').addEventListener('click', () => {
-    $('#kwFilterPanel').style.display = 'none';
+    $('#kwFilterModal').style.display = 'none';
     renderNotifications();
+  });
+
+  $('#kwFilterClose').addEventListener('click', () => {
+    $('#kwFilterModal').style.display = 'none';
+    renderNotifications();
+  });
+
+  $('#kwFilterModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+      e.currentTarget.style.display = 'none';
+      renderNotifications();
+    }
+  });
+
+  // 一键展开/折叠所有AI理由
+  let allReasonsExpanded = false;
+  $('#toggleAllReasons').addEventListener('click', () => {
+    allReasonsExpanded = !allReasonsExpanded;
+    const btn = $('#toggleAllReasons');
+    document.querySelectorAll('.notif-reason-wrap').forEach(el => {
+      if (allReasonsExpanded) {
+        el.classList.add('expanded');
+      } else {
+        el.classList.remove('expanded');
+      }
+    });
+    btn.innerHTML = allReasonsExpanded
+      ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg> 折叠全部理由'
+      : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg> 展开全部理由';
   });
 
   // 一键重置所有筛选
@@ -450,14 +514,6 @@ function bindEvents() {
     if (!e.target.closest('.notif-panel') && !e.target.closest('.notif-btn')) {
       $('#notifPanel').style.display = 'none';
     }
-
-    if (!e.target.closest('.kw-filter-panel') && !e.target.closest('#keywordFilterBtn')) {
-      const panel = $('#kwFilterPanel');
-      if (panel.style.display !== 'none') {
-        panel.style.display = 'none';
-        renderNotifications();
-      }
-    }
   });
 }
 
@@ -516,6 +572,22 @@ function showToast(message, type = 'info') {
 }
 
 // ---- 工具函数 ----
+function extractDomain(url) {
+  if (!url) return '';
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.replace(/^www\./, '');
+  } catch { return ''; }
+}
+
+function getSourceLabel(source) {
+  if (!source) return { text: 'Web', cls: 'src-web' };
+  if (source === 'hackernews') return { text: 'HN', cls: 'src-hn' };
+  if (source.startsWith('rss:')) return { text: 'RSS', cls: 'src-rss' };
+  if (source === 'baidu') return { text: '百度', cls: 'src-baidu' };
+  return { text: 'Web', cls: 'src-web' };
+}
+
 function escapeHtml(str) {
   if (!str) return '';
   const div = document.createElement('div');
