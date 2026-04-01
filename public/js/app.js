@@ -23,7 +23,12 @@ const API = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ keywordIds }),
-  }).then(r => r.json()),
+  }).then(r => {
+    if (!r.ok && r.status !== 429 && r.status !== 400) {
+      throw new Error(`HTTP ${r.status}`);
+    }
+    return r.json();
+  }),
 };
 
 // ---- 状态 ----
@@ -403,7 +408,8 @@ function bindEvents() {
         showToast('已启动监控，结果将通过实时流推送');
       }
     } catch (err) {
-      showToast('启动失败', 'alert');
+      console.error('Monitor run failed:', err);
+      showToast('启动失败: ' + err.message, 'alert');
     } finally {
       setTimeout(() => {
         btn.disabled = false;

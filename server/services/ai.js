@@ -10,15 +10,62 @@ const MODEL = 'deepseek-v3-2-251201';
 
 /** 从可能包含 markdown 代码块的文本中提取 JSON */
 function extractJSON(text) {
-  // 先尝试直接解析
+  if (!text || typeof text !== 'string') throw new Error('AI返回内容为空');
+
+  // 清理常见干扰：BOM、零宽字符、前后空白
+  text = text.replace(/^\uFEFF/, '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+
+  // 1. 直接解析
   try { return JSON.parse(text); } catch (_) {}
-  // 去掉 ```json ... ``` 包裹
+
+  // 2. 去掉 ```json ... ``` 包裹
   const m = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (m) return JSON.parse(m[1].trim());
-  // 最后尝试找第一个 { ... } 块
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start !== -1 && end > start) return JSON.parse(text.slice(start, end + 1));
+  if (m) {
+    try { return JSON.parse(m[1].trim()); } catch (_) {}
+  }
+
+  // 3. 找第一个 { ... } 或 [ ... ] 块（支持嵌套）
+  let start = -1;
+  let openChar = '';
+  let closeChar = '';
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{' || text[i] === '[') {
+      start = i;
+      openChar = text[i];
+      closeChar = text[i] === '{' ? '}' : ']';
+      break;
+    }
+  }
+  if (start !== -1) {
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\') { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === openChar) depth++;
+      else if (ch === closeChar) {
+        depth--;
+        if (depth === 0) {
+          try { return JSON.parse(text.slice(start, i + 1)); } catch (_) {}
+          break;
+        }
+      }
+    }
+  }
+
+  // 4. 最后兜底：用 lastIndexOf 粗略截取
+  const s = text.indexOf('{');
+  const e = text.lastIndexOf('}');
+  if (s !== -1 && e > s) {
+    try { return JSON.parse(text.slice(s, e + 1)); } catch (_) {}
+  }
+
+  // 5. 打印原始内容辅助排查
+  console.error('[AI] extractJSON failed, raw response (first 500 chars):', text.slice(0, 500));
   throw new Error('无法从响应中提取JSON');
 }
 
@@ -53,7 +100,7 @@ ${items.map((it, i) => `[${i + 1}] 标题: ${it.title}\n    摘要: ${it.snippet
     const completion = await openai.chat.completions.create({
       model: MODEL,
       messages: [
-        { role: 'system', content: '你是信息真伪验证专家。只返回JSON，不要Markdown代码块。' },
+        { role: 'system', content: '你是信息真伪验证专家。必须只返回纯JSON，禁止使用Markdown代码块包裹，禁止在JSON前后添加任何文字说明。' },
         { role: 'user', content: prompt },
       ],
       temperature: 0.2,
@@ -61,7 +108,23 @@ ${items.map((it, i) => `[${i + 1}] 标题: ${it.title}\n    摘要: ${it.snippet
     });
 
     const text = completion.choices[0].message.content;
-    const parsed = extractJSON(text);
+    let parsed;
+    try {
+      parsed = extractJSON(text);
+    } catch (jsonErr) {
+      // JSON 解析失败，重试一次
+      console.warn('[AI] JSON解析失败，重试中...', jsonErr.message);
+      const retry = await openai.chat.completions.create({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: '只返回纯JSON，不要任何其他文字。' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 2000,
+      });
+      parsed = extractJSON(retry.choices[0].message.content);
+    }
     return parsed.results || [];
   } catch (err) {
     console.error('[AI] verifyContent error:', err.message);
