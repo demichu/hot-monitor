@@ -46,6 +46,29 @@
 
   <!-- 主内容 -->
   <main class="container">
+    <!-- 热点雷达 -->
+    <div class="radar-bar">
+      <div class="radar-item">
+        <span class="radar-value" id="radarTotal">0</span>
+        <span class="radar-label">总热点</span>
+      </div>
+      <div class="radar-divider"></div>
+      <div class="radar-item">
+        <span class="radar-value radar-highlight" id="radarToday">0</span>
+        <span class="radar-label">今日新增</span>
+      </div>
+      <div class="radar-divider"></div>
+      <div class="radar-item">
+        <span class="radar-value" id="radarKeywords">0</span>
+        <span class="radar-label">监控词</span>
+      </div>
+      <div class="radar-divider"></div>
+      <div class="radar-item">
+        <span class="radar-value radar-unread" id="radarUnread">0</span>
+        <span class="radar-label">未读</span>
+      </div>
+    </div>
+
     <div class="bento-grid">
 
       <!-- 关键词监控 -->
@@ -68,6 +91,12 @@
             <button id="addKeywordBtn" class="btn-primary">添加</button>
           </div>
           <div id="keywordList" class="keyword-list"></div>
+          <button id="runNowBtn" class="btn-run-now" title="立即监控所有激活的关键词">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            立即监控
+          </button>
         </div>
       </section>
 
@@ -93,9 +122,9 @@
               <option value="credibility">可信度优先</option>
               <option value="keyword-group">按关键词分组</option>
             </select>
-            <select id="keywordFilter" class="filter-select">
-              <option value="">全部关键词</option>
-            </select>
+            <button id="keywordFilterBtn" class="filter-select filter-btn" type="button">
+              全部关键词 ▾
+            </button>
             <select id="readFilter" class="filter-select">
               <option value="">全部状态</option>
               <option value="unread">未读</option>
@@ -113,6 +142,23 @@
               <option value="24h">24小时内</option>
               <option value="3d">3天内</option>
             </select>
+            <button id="resetFiltersBtn" class="filter-reset-btn" title="重置所有筛选">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+              </svg>
+            </button>
+          </div>
+          <!-- 关键词筛选弹出面板 -->
+          <div id="kwFilterPanel" class="kw-filter-panel" style="display:none">
+            <div class="kw-filter-search-wrap">
+              <input type="text" id="kwFilterSearch" class="kw-filter-search" placeholder="搜索关键词...">
+            </div>
+            <div id="kwFilterList" class="kw-filter-list"></div>
+            <div class="kw-filter-actions">
+              <button id="kwFilterSelectAll" class="btn-ghost">全选</button>
+              <button id="kwFilterClearAll" class="btn-ghost">清除</button>
+              <button id="kwFilterDone" class="btn-primary btn-sm">确定</button>
+            </div>
           </div>
           <div id="notificationsList" class="notifications-list">
             <div class="empty-state">

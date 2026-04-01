@@ -125,8 +125,85 @@ async function runKeywordMonitor() {
   console.log(`\n[${timestamp()}] [Monitor] ✅ 本轮监控完成\n`);
 }
 
+/**
+ * 立即监控指定关键词（按ID列表）
+ */
+async function runKeywordMonitorForIds(keywordIds) {
+  const keywords = readJSON('keywords.json', []);
+  const selected = keywords.filter(k => keywordIds.includes(k.id) && k.active);
+
+  if (!selected.length) {
+    console.log(`[${timestamp()}] [Monitor] 指定的关键词无效或未激活`);
+    return;
+  }
+
+  console.log(`\n${'▓'.repeat(60)}`);
+  console.log(`[${timestamp()}] [Monitor] 立即监控 ${selected.length} 个关键词: ${selected.map(k => k.keyword).join(', ')}`);
+  console.log(`${'▓'.repeat(60)}`);
+
+  const seenUrls = new Set(readJSON('seen_urls.json', []));
+
+  for (const kw of selected) {
+    try {
+      console.log(`\n[${timestamp()}] [Monitor] ── 正在搜索: "${kw.keyword}" ──`);
+      const items = await aggregator.aggregate(kw.keyword);
+      if (!items.length) {
+        console.log(`[${timestamp()}] [Monitor] "${kw.keyword}" → 无结果，跳过`);
+        continue;
+      }
+
+      const newItems = items.filter(it => !seenUrls.has(it.url));
+      console.log(`[${timestamp()}] [Monitor] "${kw.keyword}" → ${items.length} 条结果, ${newItems.length} 条新内容`);
+
+      if (!newItems.length) {
+        console.log(`[${timestamp()}] [Monitor] "${kw.keyword}" → 全部为已见内容，跳过`);
+        continue;
+      }
+
+      const verifyBatch = newItems.slice(0, 10);
+      console.log(`[${timestamp()}] [AI] 正在验证 ${verifyBatch.length} 条内容...`);
+      const verifyResults = await ai.verifyContent(verifyBatch);
+
+      const reliableItems = [];
+      for (let i = 0; i < verifyBatch.length; i++) {
+        const verify = verifyResults.find(v => v.index === i + 1);
+        if (verify && verify.isReliable && verify.credibility >= 40) {
+          reliableItems.push({ ...newItems[i], credibility: verify.credibility, verifyReason: verify.reason });
+          console.log(`[${timestamp()}] [AI] ✓ [${verify.credibility}分] ${newItems[i].title.slice(0, 50)}`);
+        } else if (verify) {
+          console.log(`[${timestamp()}] [AI] ✗ [${verify.credibility}分] ${newItems[i].title.slice(0, 50)} - ${verify.reason}`);
+        }
+      }
+
+      for (const item of newItems) seenUrls.add(item.url);
+
+      if (reliableItems.length > 0) {
+        const notifications = readJSON('notifications.json', []);
+        for (const item of reliableItems.slice(0, 5)) {
+          const notif = {
+            id: generateId(), type: 'keyword_alert', keyword: kw.keyword,
+            title: item.title, snippet: item.snippet, url: item.url, source: item.source,
+            credibility: item.credibility, read: false, createdAt: new Date().toISOString(),
+          };
+          notifications.unshift(notif);
+          broadcastSSE('notification', notif);
+        }
+        writeJSON('notifications.json', notifications.slice(0, 200));
+        console.log(`[${timestamp()}] [Monitor] "${kw.keyword}" → 发送 ${Math.min(reliableItems.length, 5)} 条热点通知`);
+      }
+    } catch (err) {
+      console.error(`[${timestamp()}] [Monitor] "${kw.keyword}" 出错:`, err.message);
+    }
+  }
+
+  const urlsArr = Array.from(seenUrls).slice(-5000);
+  writeJSON('seen_urls.json', urlsArr);
+  console.log(`\n[${timestamp()}] [Monitor] ✅ 立即监控完成\n`);
+}
+
 module.exports = {
   runKeywordMonitor,
+  runKeywordMonitorForIds,
   addSSEClient,
   broadcastSSE,
 };

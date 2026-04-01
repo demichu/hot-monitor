@@ -18,6 +18,12 @@ const API = {
   getNotifications: () => fetch('/api/notifications').then(r => r.json()),
   markRead: (id) => fetch(`/api/notifications/${id}/read`, { method: 'POST' }).then(r => r.json()),
   markAllRead: () => fetch('/api/notifications/read-all', { method: 'POST' }).then(r => r.json()),
+  getStats: () => fetch('/api/stats').then(r => r.json()),
+  runMonitor: (keywordIds) => fetch('/api/monitor/run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keywordIds }),
+  }).then(r => r.json()),
 };
 
 // ---- 状态 ----
@@ -25,7 +31,7 @@ let keywords = [];
 let notifications = [];
 let unreadCount = 0;
 let sortMode = 'time-desc';
-let filterKeyword = '';
+let filterKeywords = new Set(); // empty = show all
 let filterRead = '';
 let filterCredibility = '';
 let filterTime = '';
@@ -39,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initSpotlight();
   loadKeywords();
   loadNotifications();
+  loadStats();
   bindEvents();
   requestNotificationPermission();
 });
@@ -66,6 +73,7 @@ function initSSE() {
     updateBadge();
     showToast(notif.title, 'alert');
     sendBrowserNotification(notif);
+    loadStats();
   });
 
   evtSource.addEventListener('connected', () => {
@@ -100,6 +108,18 @@ async function loadNotifications() {
   }
 }
 
+async function loadStats() {
+  try {
+    const stats = await API.getStats();
+    $('#radarTotal').textContent = stats.totalHotspots || 0;
+    $('#radarToday').textContent = stats.todayNew || 0;
+    $('#radarKeywords').textContent = stats.keywordCount || 0;
+    $('#radarUnread').textContent = stats.unread || 0;
+  } catch (err) {
+    console.error('Load stats failed:', err);
+  }
+}
+
 // ---- 渲染：关键词列表 ----
 function renderKeywords() {
   const kwList = $('#keywordList');
@@ -120,8 +140,8 @@ function renderKeywords() {
 function getFilteredNotifications() {
   let items = [...notifications];
 
-  if (filterKeyword) {
-    items = items.filter(n => n.keyword === filterKeyword);
+  if (filterKeywords.size > 0) {
+    items = items.filter(n => filterKeywords.has(n.keyword));
   }
   if (filterRead === 'unread') {
     items = items.filter(n => !n.read);
@@ -158,18 +178,39 @@ function getFilteredNotifications() {
   return items;
 }
 
-function updateKeywordFilterOptions() {
-  const select = $('#keywordFilter');
-  const current = select.value;
+function getAllKeywordNames() {
   const kwSet = new Set();
   notifications.forEach(n => { if (n.keyword) kwSet.add(n.keyword); });
   keywords.forEach(k => kwSet.add(k.keyword));
+  return [...kwSet].sort();
+}
 
-  const options = ['<option value="">全部关键词</option>'];
-  [...kwSet].sort().forEach(kw => {
-    options.push(`<option value="${escapeHtml(kw)}"${kw === current ? ' selected' : ''}>${escapeHtml(kw)}</option>`);
-  });
-  select.innerHTML = options.join('');
+function updateKwFilterBtnLabel() {
+  const btn = $('#keywordFilterBtn');
+  if (filterKeywords.size === 0) {
+    btn.textContent = '全部关键词 ▾';
+    btn.classList.remove('filter-active');
+  } else if (filterKeywords.size === 1) {
+    btn.textContent = [...filterKeywords][0] + ' ▾';
+    btn.classList.add('filter-active');
+  } else {
+    btn.textContent = `${filterKeywords.size}个关键词 ▾`;
+    btn.classList.add('filter-active');
+  }
+}
+
+function renderKwFilterPanel(searchTerm) {
+  const list = $('#kwFilterList');
+  const all = getAllKeywordNames();
+  const filtered = searchTerm ? all.filter(kw => kw.toLowerCase().includes(searchTerm.toLowerCase())) : all;
+
+  list.innerHTML = filtered.length === 0
+    ? '<div class="kw-filter-empty">无匹配关键词</div>'
+    : filtered.map(kw => `
+      <label class="kw-filter-item">
+        <input type="checkbox" value="${escapeHtml(kw)}" ${filterKeywords.has(kw) ? 'checked' : ''}>
+        <span>${escapeHtml(kw)}</span>
+      </label>`).join('');
 }
 
 // ---- 渲染：热点流（通知列表）----
@@ -178,7 +219,7 @@ function renderNotifications() {
   const panelList = $('#notifPanelList');
   const filtered = getFilteredNotifications();
 
-  updateKeywordFilterOptions();
+  updateKwFilterBtnLabel();
 
   if (sortMode === 'keyword-group') {
     renderGroupedNotifList(container, filtered);
@@ -282,10 +323,95 @@ function bindEvents() {
 
   // 排序与筛选
   $('#sortSelect').addEventListener('change', (e) => { sortMode = e.target.value; renderNotifications(); });
-  $('#keywordFilter').addEventListener('change', (e) => { filterKeyword = e.target.value; renderNotifications(); });
   $('#readFilter').addEventListener('change', (e) => { filterRead = e.target.value; renderNotifications(); });
   $('#credFilter').addEventListener('change', (e) => { filterCredibility = e.target.value; renderNotifications(); });
   $('#timeFilter').addEventListener('change', (e) => { filterTime = e.target.value; renderNotifications(); });
+
+  // 关键词筛选面板
+  $('#keywordFilterBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const panel = $('#kwFilterPanel');
+    const visible = panel.style.display !== 'none';
+    panel.style.display = visible ? 'none' : 'block';
+    if (!visible) {
+      $('#kwFilterSearch').value = '';
+      renderKwFilterPanel('');
+      $('#kwFilterSearch').focus();
+    }
+  });
+
+  $('#kwFilterSearch').addEventListener('input', (e) => {
+    renderKwFilterPanel(e.target.value);
+  });
+
+  $('#kwFilterList').addEventListener('change', (e) => {
+    if (e.target.type === 'checkbox') {
+      const kw = e.target.value;
+      if (e.target.checked) {
+        filterKeywords.add(kw);
+      } else {
+        filterKeywords.delete(kw);
+      }
+    }
+  });
+
+  $('#kwFilterSelectAll').addEventListener('click', () => {
+    filterKeywords = new Set(getAllKeywordNames());
+    renderKwFilterPanel($('#kwFilterSearch').value);
+  });
+
+  $('#kwFilterClearAll').addEventListener('click', () => {
+    filterKeywords.clear();
+    renderKwFilterPanel($('#kwFilterSearch').value);
+  });
+
+  $('#kwFilterDone').addEventListener('click', () => {
+    $('#kwFilterPanel').style.display = 'none';
+    renderNotifications();
+  });
+
+  // 一键重置所有筛选
+  $('#resetFiltersBtn').addEventListener('click', () => {
+    sortMode = 'time-desc';
+    filterKeywords.clear();
+    filterRead = '';
+    filterCredibility = '';
+    filterTime = '';
+    $('#sortSelect').value = 'time-desc';
+    $('#readFilter').value = '';
+    $('#credFilter').value = '';
+    $('#timeFilter').value = '';
+    renderNotifications();
+    showToast('已重置所有筛选');
+  });
+
+  // 立即监控
+  $('#runNowBtn').addEventListener('click', async () => {
+    const activeKws = keywords.filter(k => k.active);
+    if (!activeKws.length) {
+      showToast('没有激活的关键词', 'alert');
+      return;
+    }
+    const btn = $('#runNowBtn');
+    btn.disabled = true;
+    btn.textContent = '监控中...';
+    try {
+      const result = await API.runMonitor(activeKws.map(k => k.id));
+      if (result.error) {
+        showToast(result.error, 'alert');
+      } else {
+        showToast('已启动监控，结果将通过实时流推送');
+      }
+    } catch (err) {
+      showToast('启动失败', 'alert');
+    } finally {
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> 立即监控';
+        loadStats();
+      }, 2000);
+    }
+  });
 
   // 事件委托：关键词操作 + 通知
   document.addEventListener('click', async (e) => {
@@ -317,6 +443,14 @@ function bindEvents() {
 
     if (!e.target.closest('.notif-panel') && !e.target.closest('.notif-btn')) {
       $('#notifPanel').style.display = 'none';
+    }
+
+    if (!e.target.closest('.kw-filter-panel') && !e.target.closest('#keywordFilterBtn')) {
+      const panel = $('#kwFilterPanel');
+      if (panel.style.display !== 'none') {
+        panel.style.display = 'none';
+        renderNotifications();
+      }
     }
   });
 }
