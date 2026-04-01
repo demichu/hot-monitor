@@ -13,7 +13,6 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // API 路由
 app.use('/api/keywords', require('./routes/keywords'));
-app.use('/api/hotspots', require('./routes/hotspots'));
 app.use('/api/notifications', require('./routes/notifications'));
 
 // 系统状态

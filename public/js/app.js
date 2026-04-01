@@ -15,8 +15,6 @@ const API = {
     body: JSON.stringify({ active }),
   }).then(r => r.json()),
   deleteKeyword: (id) => fetch(`/api/keywords/${id}`, { method: 'DELETE' }).then(r => r.json()),
-  getHotspots: () => fetch('/api/hotspots').then(r => r.json()),
-  refreshHotspots: () => fetch('/api/hotspots/refresh', { method: 'POST' }).then(r => r.json()),
   getNotifications: () => fetch('/api/notifications').then(r => r.json()),
   markRead: (id) => fetch(`/api/notifications/${id}/read`, { method: 'POST' }).then(r => r.json()),
   markAllRead: () => fetch('/api/notifications/read-all', { method: 'POST' }).then(r => r.json()),
@@ -24,20 +22,17 @@ const API = {
 
 // ---- 状态 ----
 let keywords = [];
-let hotspots = [];
 let notifications = [];
 let unreadCount = 0;
 
 // ---- DOM ----
 const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => document.querySelectorAll(sel);
 
 // ---- 初始化 ----
 document.addEventListener('DOMContentLoaded', () => {
   initSSE();
   initSpotlight();
   loadKeywords();
-  loadHotspots();
   loadNotifications();
   bindEvents();
   requestNotificationPermission();
@@ -68,11 +63,6 @@ function initSSE() {
     sendBrowserNotification(notif);
   });
 
-  evtSource.addEventListener('hotspots_updated', () => {
-    loadHotspots();
-    showToast('热点列表已更新');
-  });
-
   evtSource.addEventListener('connected', () => {
     console.log('[SSE] Connected');
   });
@@ -90,16 +80,6 @@ async function loadKeywords() {
     renderKeywords();
   } catch (err) {
     console.error('Load keywords failed:', err);
-  }
-}
-
-async function loadHotspots() {
-  try {
-    const data = await API.getHotspots();
-    hotspots = data.hotspots || [];
-    renderHotspots();
-  } catch (err) {
-    console.error('Load hotspots failed:', err);
   }
 }
 
@@ -121,26 +101,29 @@ function renderKeywords() {
 
   kwList.innerHTML = keywords.length === 0
     ? '<div class="empty-state" style="padding:20px"><p>暂无监控关键词</p></div>'
-    : keywords.map(k => renderKeywordItem(k)).join('');
-}
-
-function renderKeywordItem(k) {
-  return `
+    : keywords.map(k => `
     <div class="keyword-item ${k.active ? '' : 'inactive'}" data-id="${k.id}">
       <span class="kw-text">${escapeHtml(k.keyword)}</span>
       <div class="kw-actions">
         <button class="kw-toggle ${k.active ? 'active' : ''}" data-id="${k.id}" data-active="${k.active}" title="${k.active ? '点击禁用' : '点击启用'}"></button>
         <button class="kw-delete" data-id="${k.id}" title="删除">×</button>
       </div>
-    </div>`;
+    </div>`).join('');
 }
 
-// ---- 渲染：热点列表 ----
-function renderHotspots() {
-  const list = $('#hotspotsList');
+// ---- 渲染：热点流（通知列表）----
+function renderNotifications() {
+  const container = $('#notificationsList');
+  const panelList = $('#notifPanelList');
 
-  if (!hotspots.length) {
-    list.innerHTML = `
+  renderNotifList(container, notifications.slice(0, 30));
+  renderNotifList(panelList, notifications.slice(0, 50));
+}
+
+function renderNotifList(container, items) {
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3">
@@ -148,112 +131,8 @@ function renderHotspots() {
           </svg>
         </div>
         <p>等待扫描中...</p>
-        <span class="empty-hint">添加关键词后将自动发现相关热点</span>
+        <span class="empty-hint">添加关键词后每30分钟自动抓取热点</span>
       </div>`;
-    return;
-  }
-
-  let html = '';
-  for (const group of hotspots) {
-    const items = group.hotspots || [];
-    html += `<div class="scope-label">
-      ${escapeHtml(group.scope)} · 更新于 ${formatTime(group.updatedAt)}
-    </div>`;
-
-    items.forEach((h, i) => {
-      const rank = i + 1;
-      const heatColor = h.heat > 70 ? 'var(--rose)' : h.heat > 40 ? 'var(--amber)' : 'var(--primary)';
-      const tagClass = `tag-${h.category || 'trend'}`;
-
-      html += `
-        <div class="hotspot-item">
-          <div class="hotspot-rank ${rank <= 3 ? 'top3' : ''}">${String(rank).padStart(2, '0')}</div>
-          <div class="hotspot-content">
-            <div class="hotspot-title">${escapeHtml(h.title)}</div>
-            <div class="hotspot-summary">${escapeHtml(h.summary || '')}</div>
-            <div class="hotspot-meta">
-              <span class="hotspot-tag ${tagClass}">${(h.category || 'TREND').toUpperCase()}</span>
-              <span class="hotspot-heat">
-                HEAT ${h.heat || 0}
-                <span class="heat-bar"><span class="heat-bar-fill" style="width:${h.heat || 0}%; background:${heatColor}"></span></span>
-              </span>
-            </div>
-            ${h.sources && h.sources.length ? `
-              <div class="hotspot-sources-list">
-                ${h.sources.slice(0, 3).map(s => `<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer" class="hotspot-source-link" title="${escapeHtml(s.title)}">${escapeHtml(s.source)}</a>`).join('')}
-              </div>` : ''}
-          </div>
-        </div>`;
-    });
-  }
-
-  list.innerHTML = html;
-}
-
-// ---- 热点搜索过滤 ----
-function filterHotspots(query) {
-  if (!query) {
-    renderHotspots();
-    return;
-  }
-  const filtered = hotspots.map(group => ({
-    ...group,
-    hotspots: (group.hotspots || []).filter(h =>
-      (h.title || '').toLowerCase().includes(query) ||
-      (h.summary || '').toLowerCase().includes(query)
-    ),
-  })).filter(group => group.hotspots.length > 0);
-
-  renderHotspotsData(filtered);
-}
-
-function renderHotspotsData(data) {
-  const list = $('#hotspotsList');
-  if (!data.length) {
-    list.innerHTML = `<div class="empty-state"><p>无匹配热点</p></div>`;
-    return;
-  }
-  let html = '';
-  for (const group of data) {
-    const items = group.hotspots || [];
-    html += `<div class="scope-label">${escapeHtml(group.scope)} · 更新于 ${formatTime(group.updatedAt)}</div>`;
-    items.forEach((h, i) => {
-      const rank = i + 1;
-      const heatColor = h.heat > 70 ? 'var(--rose)' : h.heat > 40 ? 'var(--amber)' : 'var(--primary)';
-      const tagClass = `tag-${h.category || 'trend'}`;
-      html += `
-        <div class="hotspot-item">
-          <div class="hotspot-rank ${rank <= 3 ? 'top3' : ''}">${String(rank).padStart(2, '0')}</div>
-          <div class="hotspot-content">
-            <div class="hotspot-title">${escapeHtml(h.title)}</div>
-            <div class="hotspot-summary">${escapeHtml(h.summary || '')}</div>
-            <div class="hotspot-meta">
-              <span class="hotspot-tag ${tagClass}">${(h.category || 'TREND').toUpperCase()}</span>
-              <span class="hotspot-heat">HEAT ${h.heat || 0}
-                <span class="heat-bar"><span class="heat-bar-fill" style="width:${h.heat || 0}%; background:${heatColor}"></span></span>
-              </span>
-            </div>
-            ${h.sources && h.sources.length ? `
-              <div class="hotspot-sources-list">
-                ${h.sources.slice(0, 3).map(s => `<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer" class="hotspot-source-link" title="${escapeHtml(s.title)}">${escapeHtml(s.source)}</a>`).join('')}
-              </div>` : ''}
-          </div>
-        </div>`;
-    });
-  }
-  list.innerHTML = html;
-}
-
-// ---- 渲染：通知列表 ----
-function renderNotifications() {
-  renderNotifList($('#notificationsList'), notifications.slice(0, 20));
-  renderNotifList($('#notifPanelList'), notifications.slice(0, 30));
-}
-
-function renderNotifList(container, items) {
-  if (!container) return;
-  if (!items.length) {
-    container.innerHTML = '<div class="empty-state"><p>暂无通知，正在监控中...</p></div>';
     return;
   }
 
@@ -290,23 +169,6 @@ function bindEvents() {
     if (e.key === 'Enter') addKeyword();
   });
 
-  // 刷新热点
-  $('#refreshHotspotsBtn').addEventListener('click', async () => {
-    const btn = $('#refreshHotspotsBtn');
-    btn.querySelector('span').textContent = '扫描中...';
-    btn.disabled = true;
-    try {
-      await API.refreshHotspots();
-      showToast('热点刷新已触发，请稍候...');
-    } catch (err) {
-      showToast('刷新失败', 'alert');
-    }
-    setTimeout(() => {
-      btn.querySelector('span').textContent = '刷新';
-      btn.disabled = false;
-    }, 3000);
-  });
-
   // 通知面板
   $('#notifBtn').addEventListener('click', () => {
     const panel = $('#notifPanel');
@@ -326,15 +188,8 @@ function bindEvents() {
     updateBadge();
   });
 
-  // 热点搜索过滤
-  $('#hotspotSearch').addEventListener('input', (e) => {
-    const query = e.target.value.trim().toLowerCase();
-    filterHotspots(query);
-  });
-
-  // 事件委托：关键词操作
+  // 事件委托：关键词操作 + 通知
   document.addEventListener('click', async (e) => {
-    // 切换关键词启用状态
     if (e.target.classList.contains('kw-toggle')) {
       const id = e.target.dataset.id;
       const currentActive = e.target.dataset.active === 'true';
@@ -342,14 +197,12 @@ function bindEvents() {
       await loadKeywords();
     }
 
-    // 删除关键词
     if (e.target.classList.contains('kw-delete')) {
       const id = e.target.dataset.id;
       await API.deleteKeyword(id);
       await loadKeywords();
     }
 
-    // 标记通知已读
     if (e.target.closest('.notif-item.unread')) {
       const item = e.target.closest('.notif-item');
       const id = item.dataset.id;
@@ -363,7 +216,6 @@ function bindEvents() {
       updateBadge();
     }
 
-    // 点击通知面板外部关闭
     if (!e.target.closest('.notif-panel') && !e.target.closest('.notif-btn')) {
       $('#notifPanel').style.display = 'none';
     }
@@ -398,6 +250,52 @@ function requestNotificationPermission() {
 
 function sendBrowserNotification(notif) {
   if ('Notification' in window && Notification.permission === 'granted') {
+    const n = new Notification(`🔥 ${notif.keyword || 'Hot Monitor'}`, {
+      body: notif.title,
+      icon: '/favicon.ico',
+      tag: notif.id,
+    });
+    n.onclick = () => {
+      window.focus();
+      if (notif.url) window.open(notif.url, '_blank');
+    };
+  }
+}
+
+// ---- Toast ----
+function showToast(message, type = 'info') {
+  const container = $('#toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type === 'alert' ? 'alert' : ''}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add('toast-exit');
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
+// ---- 工具函数 ----
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function formatTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now - d;
+
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`;
+
+  return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
     const n = new Notification(`🔥 ${notif.keyword || 'Hot Monitor'}`, {
       body: notif.title,
       icon: '/favicon.ico',

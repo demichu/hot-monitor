@@ -26,7 +26,7 @@ function timestamp() {
 }
 
 /**
- * 关键词监控：搜索关键词 → AI验证 → 提取热点 → 发送通知
+ * 关键词监控：搜索关键词 → AI验证 → 发送热点通知
  */
 async function runKeywordMonitor() {
   const keywords = readJSON('keywords.json', []);
@@ -47,7 +47,7 @@ async function runKeywordMonitor() {
     try {
       console.log(`\n[${timestamp()}] [Monitor] ── 正在搜索: "${kw.keyword}" ──`);
 
-      // 1. 聚合搜索（中文源优先）
+      // 1. 聚合搜索
       const items = await aggregator.aggregate(kw.keyword);
       if (!items.length) {
         console.log(`[${timestamp()}] [Monitor] "${kw.keyword}" → 无结果，跳过`);
@@ -89,39 +89,8 @@ async function runKeywordMonitor() {
         seenUrls.add(item.url);
       }
 
-      // 6. AI 提取热点（从可信内容中）
+      // 6. 发送通知
       if (reliableItems.length > 0) {
-        console.log(`[${timestamp()}] [AI] 正在从 ${reliableItems.length} 条可信内容中提取热点...`);
-        const hotspots = await ai.extractHotspots(kw.keyword, reliableItems);
-
-        if (hotspots.length > 0) {
-          // 保存热点
-          const allHotspots = readJSON('hotspots.json', []);
-          const newEntry = {
-            id: generateId(),
-            scope: kw.keyword,
-            hotspots,
-            updatedAt: new Date().toISOString(),
-          };
-
-          // 替换同关键词的旧数据
-          const idx = allHotspots.findIndex(h => h.scope === kw.keyword);
-          if (idx >= 0) {
-            allHotspots[idx] = newEntry;
-          } else {
-            allHotspots.push(newEntry);
-          }
-          writeJSON('hotspots.json', allHotspots);
-
-          // 通知前端刷新热点
-          broadcastSSE('hotspots_updated', { scope: kw.keyword, count: hotspots.length });
-          console.log(`[${timestamp()}] [Hotspot] "${kw.keyword}" → ${hotspots.length} 个热点`);
-          hotspots.forEach((h, i) => {
-            console.log(`  🔥 [${i + 1}] ${h.title} (热度: ${h.heat})`);
-          });
-        }
-
-        // 7. 发送通知
         const notifications = readJSON('notifications.json', []);
         for (const item of reliableItems.slice(0, 5)) {
           const notif = {
@@ -139,11 +108,10 @@ async function runKeywordMonitor() {
           notifications.unshift(notif);
           broadcastSSE('notification', notif);
         }
-        // 只保留最近 200 条通知
         writeJSON('notifications.json', notifications.slice(0, 200));
-        console.log(`[${timestamp()}] [Monitor] "${kw.keyword}" → 发送 ${Math.min(reliableItems.length, 5)} 条通知`);
+        console.log(`[${timestamp()}] [Monitor] "${kw.keyword}" → 发送 ${Math.min(reliableItems.length, 5)} 条热点通知`);
       } else {
-        console.log(`[${timestamp()}] [Monitor] "${kw.keyword}" → 无可信内容，跳过通知和热点`);
+        console.log(`[${timestamp()}] [Monitor] "${kw.keyword}" → 无可信内容，跳过`);
       }
     } catch (err) {
       console.error(`[${timestamp()}] [Monitor] "${kw.keyword}" 出错:`, err.message);
