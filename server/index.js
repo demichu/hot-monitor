@@ -18,11 +18,13 @@ app.use('/api/notifications', require('./routes/notifications'));
 
 // 系统状态
 app.get('/api/status', (req, res) => {
+  const twitterKey = process.env.TWITTER_API_KEY;
   res.json({
     status: 'running',
     uptime: process.uptime(),
     monitorInterval: `${process.env.MONITOR_INTERVAL_MINUTES || 5}min`,
     hotspotInterval: `${process.env.HOTSPOT_INTERVAL_MINUTES || 30}min`,
+    twitterConfigured: !!(twitterKey && twitterKey !== 'your_twitter_api_key'),
   });
 });
 

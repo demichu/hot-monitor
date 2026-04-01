@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadKeywords();
   loadHotspots();
   loadNotifications();
+  loadStatus();
   bindEvents();
   requestNotificationPermission();
 });
@@ -113,6 +114,24 @@ async function loadNotifications() {
     updateBadge();
   } catch (err) {
     console.error('Load notifications failed:', err);
+  }
+}
+
+async function loadStatus() {
+  try {
+    const data = await API.getStatus();
+    const el = $('#twitterStatus');
+    if (el) {
+      if (data.twitterConfigured) {
+        el.textContent = '在线';
+        el.classList.add('active');
+      } else {
+        el.textContent = '待配置';
+        el.classList.remove('active');
+      }
+    }
+  } catch (err) {
+    console.error('Load status failed:', err);
   }
 }
 
