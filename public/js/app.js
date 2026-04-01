@@ -261,22 +261,22 @@ function renderNotifItemHTML(n) {
   const domain = extractDomain(n.url);
   const sourceLabel = getSourceLabel(n.source);
 
-  // 互动数据
-  let engagementHTML = '';
-  const engagementParts = [];
-  if (n.points) engagementParts.push(`<span class="meta-tag meta-points">▲ ${n.points}</span>`);
-  if (n.comments) engagementParts.push(`<span class="meta-tag meta-comments">💬 ${n.comments}</span>`);
-  if (n.author) engagementParts.push(`<span class="meta-tag meta-author">@${escapeHtml(n.author)}</span>`);
-  if (engagementParts.length) engagementHTML = engagementParts.join('');
+  // 发布时间（醒目展示）
+  const publishedText = n.publishedAt ? formatTime(n.publishedAt) : '';
 
-  // 发布时间
-  const publishedHTML = n.publishedAt
-    ? `<span class="meta-tag meta-published" title="原帖发布时间">📅 ${formatTime(n.publishedAt)}</span>`
+  // 互动数据行
+  const infoParts = [];
+  if (publishedText) infoParts.push(`<span class="info-chip info-time">📅 ${publishedText}</span>`);
+  if (n.points) infoParts.push(`<span class="info-chip info-points">▲ ${n.points}</span>`);
+  if (n.comments) infoParts.push(`<span class="info-chip info-comments">💬 ${n.comments}</span>`);
+  if (n.author) infoParts.push(`<span class="info-chip info-author">👤 ${escapeHtml(n.author)}</span>`);
+  const infoBarHTML = infoParts.length
+    ? `<div class="notif-info-bar">${infoParts.join('')}</div>`
     : '';
 
-  // AI 理由（可折叠）
+  // AI 理由（内联展示，可折叠）
   const reasonHTML = n.verifyReason
-    ? `<div class="notif-reason-wrap">
+    ? `<div class="notif-reason-wrap expanded">
         <button class="notif-reason-toggle" onclick="this.parentElement.classList.toggle('expanded')">
           <svg class="reason-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
           AI分析
@@ -290,21 +290,16 @@ function renderNotifItemHTML(n) {
       <div class="notif-head">
         <div class="notif-keyword">[${escapeHtml(n.keyword || '')}]</div>
         <span class="notif-source-tag ${sourceLabel.cls}">${sourceLabel.text}</span>
+        <span class="notif-domain" title="${escapeHtml(n.url || '')}">${domain}</span>
       </div>
       <div class="notif-title"><a href="${escapeHtml(n.url || '#')}" target="_blank" rel="noopener noreferrer">${escapeHtml(n.title)}</a></div>
       <div class="notif-snippet">${escapeHtml(n.snippet || '')}</div>
-      <div class="notif-meta">
-        <div class="notif-meta-left">
-          <span class="notif-credibility ${credClass}">可信度 ${n.credibility || '?'}</span>
-          ${publishedHTML}
-          ${engagementHTML}
-        </div>
-        <div class="notif-meta-right">
-          <span class="meta-domain" title="${escapeHtml(n.url || '')}">${domain}</span>
-          <span>${formatTime(n.createdAt)}</span>
-        </div>
-      </div>
+      ${infoBarHTML}
       ${reasonHTML}
+      <div class="notif-footer">
+        <span class="notif-credibility ${credClass}">可信度 ${n.credibility || '?'}</span>
+        <span class="notif-capture-time">抓取于 ${formatTime(n.createdAt)}</span>
+      </div>
     </div>`;
 }
 
@@ -422,8 +417,8 @@ function bindEvents() {
     }
   });
 
-  // 一键展开/折叠所有AI理由
-  let allReasonsExpanded = false;
+  // 一键展开/折叠所有AI理由（默认已展开）
+  let allReasonsExpanded = true;
   $('#toggleAllReasons').addEventListener('click', () => {
     allReasonsExpanded = !allReasonsExpanded;
     const btn = $('#toggleAllReasons');

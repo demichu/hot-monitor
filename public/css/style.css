@@ -852,7 +852,7 @@ body {
   border-left-color: var(--primary);
 }
 
-/* 通知头部（关键词 + 来源标签） */
+/* 通知头部（关键词 + 来源标签 + 域名） */
 .notif-head {
   display: flex;
   align-items: center;
@@ -901,6 +901,17 @@ body {
   border: 1px solid var(--violet-border);
 }
 
+.notif-domain {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-left: auto;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .notif-title {
   font-size: 13px;
   font-weight: 600;
@@ -930,69 +941,63 @@ body {
   line-height: 1.5;
 }
 
-/* 通知 meta（两端对齐） */
-.notif-meta {
+/* 信息栏（发布时间 + 互动数据） */
+.notif-info-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background: var(--bg-input);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.info-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.info-time {
+  color: var(--text);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.info-points {
+  color: #ff6600;
+  background: rgba(255, 102, 0, 0.08);
+}
+
+.info-comments {
+  color: var(--primary);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.info-author {
+  color: var(--violet);
+  background: rgba(139, 92, 246, 0.08);
+}
+
+/* 底部栏（可信度 + 抓取时间） */
+.notif-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 11px;
   color: var(--text-tertiary);
-  gap: 8px;
-  flex-wrap: wrap;
+  margin-top: 6px;
 }
 
-.notif-meta-left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.notif-meta-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.meta-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: var(--radius-full);
-  background: var(--bg-input);
-  color: var(--text-secondary);
-}
-
-.meta-points {
-  color: #ff6600;
-  background: #ff660010;
-}
-
-.meta-comments {
-  color: var(--primary);
-  background: var(--primary-bg);
-}
-
-.meta-author {
-  color: var(--violet);
-  background: var(--violet-bg);
-}
-
-.meta-published {
-  color: var(--text-secondary);
-  background: var(--bg-input);
-}
-
-.meta-domain {
-  font-family: var(--font-mono);
-  font-size: 10px;
+.notif-capture-time {
+  font-size: 11px;
   color: var(--text-tertiary);
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .notif-credibility {
@@ -1005,11 +1010,13 @@ body {
 .credibility-mid  { color: var(--amber); }
 .credibility-low  { color: var(--rose); }
 
-/* AI 分析理由（折叠） */
+/* AI 分析理由（默认展开） */
 .notif-reason-wrap {
-  margin-top: 8px;
-  border-top: 1px dashed var(--border);
-  padding-top: 6px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.04), rgba(139, 92, 246, 0.04));
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  border-radius: 8px;
 }
 
 .notif-reason-toggle {
@@ -1042,16 +1049,17 @@ body {
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.6;
-  padding: 6px 0 2px 14px;
+  padding: 4px 0 0 18px;
   max-height: 0;
   overflow: hidden;
   opacity: 0;
-  transition: max-height 0.25s ease, opacity 0.2s;
+  transition: max-height 0.25s ease, opacity 0.2s, padding 0.2s;
 }
 
 .notif-reason-wrap.expanded .notif-reason-text {
   max-height: 200px;
   opacity: 1;
+  padding: 6px 0 2px 18px;
 }
 
 /* ---- 空状态 ---- */
