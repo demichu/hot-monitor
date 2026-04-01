@@ -36,12 +36,24 @@ const $$ = (sel) => document.querySelectorAll(sel);
 // ---- 初始化 ----
 document.addEventListener('DOMContentLoaded', () => {
   initSSE();
+  initSpotlight();
   loadKeywords();
   loadHotspots();
   loadNotifications();
   bindEvents();
   requestNotificationPermission();
 });
+
+// ---- Aceternity Spotlight 光效 ----
+function initSpotlight() {
+  document.querySelectorAll('[data-spotlight]').forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+      card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+    });
+  });
+}
 
 // ---- SSE 实时通知 ----
 function initSSE() {
@@ -139,8 +151,13 @@ function renderHotspots() {
   if (!hotspots.length) {
     list.innerHTML = `
       <div class="empty-state">
-        <div class="radar-sweep"></div>
-        <p>等待扫描中... 添加热点范围后将自动发现热点</p>
+        <div class="empty-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+        </div>
+        <p>等待扫描中...</p>
+        <span class="empty-hint">添加热点范围后将自动发现热点</span>
       </div>`;
     return;
   }
@@ -148,13 +165,13 @@ function renderHotspots() {
   let html = '';
   for (const group of hotspots) {
     const items = group.hotspots || [];
-    html += `<div style="margin-bottom:8px; font-size:11px; color:var(--text-dim); font-family:var(--font-display); letter-spacing:1px;">
-      SCOPE: ${escapeHtml(group.scope)} · 更新于 ${formatTime(group.updatedAt)}
+    html += `<div class="scope-label">
+      ${escapeHtml(group.scope)} · 更新于 ${formatTime(group.updatedAt)}
     </div>`;
 
     items.forEach((h, i) => {
       const rank = i + 1;
-      const heatColor = h.heat > 70 ? 'var(--magenta)' : h.heat > 40 ? 'var(--amber)' : 'var(--cyan)';
+      const heatColor = h.heat > 70 ? 'var(--rose)' : h.heat > 40 ? 'var(--amber)' : 'var(--primary)';
       const tagClass = `tag-${h.category || 'trend'}`;
 
       html += `
@@ -236,8 +253,9 @@ function bindEvents() {
 
   // 刷新热点
   $('#refreshHotspotsBtn').addEventListener('click', async () => {
-    $('#refreshHotspotsBtn').textContent = '扫描中...';
-    $('#refreshHotspotsBtn').disabled = true;
+    const btn = $('#refreshHotspotsBtn');
+    btn.querySelector('span').textContent = '扫描中...';
+    btn.disabled = true;
     try {
       await API.refreshHotspots();
       showToast('热点刷新已触发，请稍候...');
@@ -245,8 +263,8 @@ function bindEvents() {
       showToast('刷新失败', 'alert');
     }
     setTimeout(() => {
-      $('#refreshHotspotsBtn').textContent = '↻ 刷新';
-      $('#refreshHotspotsBtn').disabled = false;
+      btn.querySelector('span').textContent = '刷新';
+      btn.disabled = false;
     }, 3000);
   });
 
