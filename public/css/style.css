@@ -869,6 +869,12 @@ body {
   border: 1px solid #2932e130;
 }
 
+.src-cn {
+  background: #e11d4815;
+  color: #e11d48;
+  border: 1px solid #e11d4830;
+}
+
 .src-web {
   background: var(--violet-bg);
   color: var(--violet);

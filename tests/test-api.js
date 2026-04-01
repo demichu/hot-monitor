@@ -42,13 +42,12 @@ before(async () => {
   process.env.PORT = '3456';
   process.env.MONITOR_INTERVAL_MINUTES = '9999'; // prevent cron from running
 
-  // Clear test data
+  // Clear test DB
   const fs = require('fs');
   const path = require('path');
-  const dataDir = path.join(__dirname, '..', 'server', 'services', 'data');
-  for (const file of ['keywords.json', 'notifications.json', 'seen_urls.json']) {
-    const fp = path.join(dataDir, file);
-    if (fs.existsSync(fp)) fs.writeFileSync(fp, '[]');
+  const dbPath = path.join(__dirname, '..', 'server', 'db', 'hot-monitor.db');
+  for (const file of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
+    if (fs.existsSync(file)) fs.unlinkSync(file);
   }
 
   // Start server
@@ -333,11 +332,17 @@ describe('Enriched notification fields', () => {
       if (source === 'hackernews') return { text: 'HN', cls: 'src-hn' };
       if (source.startsWith('rss:')) return { text: 'RSS', cls: 'src-rss' };
       if (source === 'baidu') return { text: '百度', cls: 'src-baidu' };
+      if (source === 'cn:bilibili') return { text: 'B站', cls: 'src-cn' };
+      if (source === 'cn:zhihu') return { text: '知乎', cls: 'src-cn' };
+      if (source === 'cn:xiaohongshu') return { text: '小红书', cls: 'src-cn' };
+      if (source === 'cn:tieba') return { text: '贴吧', cls: 'src-cn' };
       return { text: 'Web', cls: 'src-web' };
     }
     assert.strictEqual(getSourceLabel('hackernews').text, 'HN');
     assert.strictEqual(getSourceLabel('rss:Hacker News').text, 'RSS');
     assert.strictEqual(getSourceLabel('baidu').text, '百度');
+    assert.strictEqual(getSourceLabel('cn:bilibili').text, 'B站');
+    assert.strictEqual(getSourceLabel('cn:zhihu').text, '知乎');
     assert.strictEqual(getSourceLabel('web-search').text, 'Web');
     assert.strictEqual(getSourceLabel(null).text, 'Web');
   });

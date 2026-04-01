@@ -19,16 +19,29 @@ const API = {
   markRead: (id) => fetch(`/api/notifications/${id}/read`, { method: 'POST' }).then(r => r.json()),
   markAllRead: () => fetch('/api/notifications/read-all', { method: 'POST' }).then(r => r.json()),
   getStats: () => fetch('/api/stats').then(r => r.json()),
-  runMonitor: (keywordIds) => fetch('/api/monitor/run', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ keywordIds }),
-  }).then(r => {
-    if (!r.ok && r.status !== 429 && r.status !== 400) {
-      throw new Error(`HTTP ${r.status}`);
+  runMonitor: async (keywordIds) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    try {
+      const r = await fetch('/api/monitor/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keywordIds }),
+        signal: controller.signal,
+      });
+      if (!r.ok && r.status !== 429 && r.status !== 400) {
+        throw new Error(`HTTP ${r.status}`);
+      }
+      return await r.json();
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error('请求超时，请检查服务端状态');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
     }
-    return r.json();
-  }),
+  },
 };
 
 // ---- 状态 ----
@@ -43,6 +56,16 @@ let filterTime = '';
 
 // ---- DOM ----
 const $ = (sel) => document.querySelector(sel);
+
+function on(sel, event, handler) {
+  const el = $(sel);
+  if (!el) {
+    console.warn(`[UI] Missing element: ${sel}`);
+    return null;
+  }
+  el.addEventListener(event, handler);
+  return el;
+}
 
 // ---- 初始化 ----
 document.addEventListener('DOMContentLoaded', () => {
@@ -338,23 +361,25 @@ function updateBadge() {
 // ---- 事件绑定 ----
 function bindEvents() {
   // 添加关键词
-  $('#addKeywordBtn').addEventListener('click', () => addKeyword());
-  $('#keywordInput').addEventListener('keydown', (e) => {
+  on('#addKeywordBtn', 'click', () => addKeyword());
+  on('#keywordInput', 'keydown', (e) => {
     if (e.key === 'Enter') addKeyword();
   });
 
   // 通知面板
-  $('#notifBtn').addEventListener('click', () => {
+  on('#notifBtn', 'click', () => {
     const panel = $('#notifPanel');
+    if (!panel) return;
     panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
   });
 
-  $('#closeNotifPanel').addEventListener('click', () => {
-    $('#notifPanel').style.display = 'none';
+  on('#closeNotifPanel', 'click', () => {
+    const panel = $('#notifPanel');
+    if (panel) panel.style.display = 'none';
   });
 
   // 全部已读
-  $('#readAllBtn').addEventListener('click', async () => {
+  on('#readAllBtn', 'click', async () => {
     await API.markAllRead();
     notifications.forEach(n => { n.read = true; });
     unreadCount = 0;
@@ -363,26 +388,28 @@ function bindEvents() {
   });
 
   // 排序与筛选
-  $('#sortSelect').addEventListener('change', (e) => { sortMode = e.target.value; renderNotifications(); });
-  $('#readFilter').addEventListener('change', (e) => { filterRead = e.target.value; renderNotifications(); });
-  $('#credFilter').addEventListener('change', (e) => { filterCredibility = e.target.value; renderNotifications(); });
-  $('#timeFilter').addEventListener('change', (e) => { filterTime = e.target.value; renderNotifications(); });
+  on('#sortSelect', 'change', (e) => { sortMode = e.target.value; renderNotifications(); });
+  on('#readFilter', 'change', (e) => { filterRead = e.target.value; renderNotifications(); });
+  on('#credFilter', 'change', (e) => { filterCredibility = e.target.value; renderNotifications(); });
+  on('#timeFilter', 'change', (e) => { filterTime = e.target.value; renderNotifications(); });
 
   // 关键词筛选 Modal
-  $('#keywordFilterBtn').addEventListener('click', (e) => {
+  on('#keywordFilterBtn', 'click', (e) => {
     e.stopPropagation();
     const modal = $('#kwFilterModal');
+    const search = $('#kwFilterSearch');
+    if (!modal || !search) return;
     modal.style.display = 'flex';
-    $('#kwFilterSearch').value = '';
+    search.value = '';
     renderKwFilterPanel('');
-    $('#kwFilterSearch').focus();
+    search.focus();
   });
 
-  $('#kwFilterSearch').addEventListener('input', (e) => {
+  on('#kwFilterSearch', 'input', (e) => {
     renderKwFilterPanel(e.target.value);
   });
 
-  $('#kwFilterList').addEventListener('change', (e) => {
+  on('#kwFilterList', 'change', (e) => {
     if (e.target.type === 'checkbox') {
       const kw = e.target.value;
       if (e.target.checked) {
@@ -393,27 +420,31 @@ function bindEvents() {
     }
   });
 
-  $('#kwFilterSelectAll').addEventListener('click', () => {
+  on('#kwFilterSelectAll', 'click', () => {
+    const search = $('#kwFilterSearch');
     filterKeywords = new Set(getAllKeywordNames());
-    renderKwFilterPanel($('#kwFilterSearch').value);
+    renderKwFilterPanel(search ? search.value : '');
   });
 
-  $('#kwFilterClearAll').addEventListener('click', () => {
+  on('#kwFilterClearAll', 'click', () => {
+    const search = $('#kwFilterSearch');
     filterKeywords.clear();
-    renderKwFilterPanel($('#kwFilterSearch').value);
+    renderKwFilterPanel(search ? search.value : '');
   });
 
-  $('#kwFilterDone').addEventListener('click', () => {
-    $('#kwFilterModal').style.display = 'none';
+  on('#kwFilterDone', 'click', () => {
+    const modal = $('#kwFilterModal');
+    if (modal) modal.style.display = 'none';
     renderNotifications();
   });
 
-  $('#kwFilterClose').addEventListener('click', () => {
-    $('#kwFilterModal').style.display = 'none';
+  on('#kwFilterClose', 'click', () => {
+    const modal = $('#kwFilterModal');
+    if (modal) modal.style.display = 'none';
     renderNotifications();
   });
 
-  $('#kwFilterModal').addEventListener('click', (e) => {
+  on('#kwFilterModal', 'click', (e) => {
     if (e.target === e.currentTarget) {
       e.currentTarget.style.display = 'none';
       renderNotifications();
@@ -421,22 +452,26 @@ function bindEvents() {
   });
 
   // 一键重置所有筛选
-  $('#resetFiltersBtn').addEventListener('click', () => {
+  on('#resetFiltersBtn', 'click', () => {
     sortMode = 'time-desc';
     filterKeywords.clear();
     filterRead = '';
     filterCredibility = '';
     filterTime = '';
-    $('#sortSelect').value = 'time-desc';
-    $('#readFilter').value = '';
-    $('#credFilter').value = '';
-    $('#timeFilter').value = '';
+    const sort = $('#sortSelect');
+    const read = $('#readFilter');
+    const cred = $('#credFilter');
+    const time = $('#timeFilter');
+    if (sort) sort.value = 'time-desc';
+    if (read) read.value = '';
+    if (cred) cred.value = '';
+    if (time) time.value = '';
     renderNotifications();
     showToast('已重置所有筛选');
   });
 
   // 立即监控
-  $('#runNowBtn').addEventListener('click', async () => {
+  on('#runNowBtn', 'click', async () => {
     const activeKws = keywords.filter(k => k.active);
     if (!activeKws.length) {
       showToast('没有激活的关键词', 'alert');
@@ -541,6 +576,10 @@ function sendBrowserNotification(notif) {
 // ---- Toast ----
 function showToast(message, type = 'info') {
   const container = $('#toastContainer');
+  if (!container) {
+    console.log('[Toast]', message);
+    return;
+  }
   const toast = document.createElement('div');
   toast.className = `toast ${type === 'alert' ? 'alert' : ''}`;
   toast.textContent = message;
@@ -566,6 +605,10 @@ function getSourceLabel(source) {
   if (source === 'hackernews') return { text: 'HN', cls: 'src-hn' };
   if (source.startsWith('rss:')) return { text: 'RSS', cls: 'src-rss' };
   if (source === 'baidu') return { text: '百度', cls: 'src-baidu' };
+  if (source === 'cn:bilibili') return { text: 'B站', cls: 'src-cn' };
+  if (source === 'cn:zhihu') return { text: '知乎', cls: 'src-cn' };
+  if (source === 'cn:xiaohongshu') return { text: '小红书', cls: 'src-cn' };
+  if (source === 'cn:tieba') return { text: '贴吧', cls: 'src-cn' };
   return { text: 'Web', cls: 'src-web' };
 }
 

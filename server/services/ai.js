@@ -159,7 +159,7 @@ ${items.map((it, i) => `[${i + 1}] 标题: ${it.title}\n    摘要: ${it.snippet
 请返回JSON:
 {
   "results": [
-    { "index": 1, "relevance": 0到100, "credibility": 0到100, "isReliable": true或false, "reason": "一句话说明相关性和可信度判断理由", "titleZh": "如果原标题不是中文，翻译成中文；如果已经是中文则原样返回" }
+    { "index": 1, "relevance": 0到100, "credibility": 0到100, "isReliable": true或false, "reason": "一句话说明相关性和可信度判断理由" }
   ]
 }`;
 

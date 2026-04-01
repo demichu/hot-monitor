@@ -4,3 +4,6 @@ server/data/*.json
 !server/data/.gitkeep
 server/services/data/*.json
 !server/services/data/.gitkeep
+server/db/*.db
+server/db/*.db-wal
+server/db/*.db-shm

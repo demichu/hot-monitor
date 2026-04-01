@@ -104,7 +104,7 @@ async function runKeywordMonitor() {
             id: generateId(),
             type: 'keyword_alert',
             keyword: kw.keyword,
-            title: item.titleZh || item.title,
+            title: item.title,
             snippet: item.snippet,
             url: item.url,
             source: item.source,
@@ -189,7 +189,7 @@ async function runKeywordMonitorForIds(keywordIds) {
         const rel = verify.relevance || 0;
         const cred = verify.credibility || 0;
         if (verify.isReliable && rel >= 60 && cred >= 40) {
-          reliableItems.push({ ...newItems[i], credibility: cred, relevance: rel, verifyReason: verify.reason, titleZh: verify.titleZh, titleZh: verify.titleZh });
+          reliableItems.push({ ...newItems[i], credibility: cred, relevance: rel, verifyReason: verify.reason });
           console.log(`[${timestamp()}] [AI] ✓ [相关${rel} 可信${cred}] ${newItems[i].title.slice(0, 50)}`);
         } else {
           console.log(`[${timestamp()}] [AI] ✗ [相关${rel} 可信${cred}] ${newItems[i].title.slice(0, 50)} - ${verify.reason}`);
@@ -203,7 +203,7 @@ async function runKeywordMonitorForIds(keywordIds) {
         for (const item of reliableItems.slice(0, 5)) {
           const notif = {
             id: generateId(), type: 'keyword_alert', keyword: kw.keyword,
-            title: item.titleZh || item.title, snippet: item.snippet, url: item.url, source: item.source,
+            title: item.title, snippet: item.snippet, url: item.url, source: item.source,
             credibility: item.credibility,
             relevance: item.relevance || 0,
             verifyReason: item.verifyReason || '',
